@@ -2,5 +2,16 @@ FROM nvcr.io/nvidia/tritonserver:24.12-py3
 
 WORKDIR /workspace
 
+# Force install packaging to ensure it's in system site-packages
+# The DALI backend wheel contains an incomplete packaging module that conflicts with hydra-core
+# pip skips installing packaging if it sees it's already available from the DALI wheel
+# We need to force install it to ensure a complete version is in /usr/local/lib/python3.12/dist-packages
+RUN python3 -m pip install --no-cache-dir --force-reinstall packaging
+
+# Copy sitecustomize.py to fix sys.path order globally
+# This ensures system site-packages are prioritized over backend wheels (like DALI)
+COPY sitecustomize.py /usr/local/lib/python3.12/dist-packages/sitecustomize.py
+
+# Install project dependencies
 COPY requirements-triton.txt /tmp/requirements-triton.txt
-RUN pip install --no-cache-dir -r /tmp/requirements-triton.txt
+RUN python3 -m pip install --no-cache-dir -r /tmp/requirements-triton.txt
