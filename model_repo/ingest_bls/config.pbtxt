@@ -1,0 +1,38 @@
+name: "ingest_bls"
+backend: "python"
+max_batch_size: 0
+input [
+  {
+    name: "INPUT_SOURCE_ID"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  },
+  {
+    name: "INPUT_AUDIO_PATH"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  },
+  {
+    name: "INPUT_TRANSCRIPT_PATH"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  },
+  {
+    name: "INPUT_METADATA_JSON"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  }
+]
+output [
+  {
+    name: "OUTPUT_RESULT"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  }
+]
+instance_group [
+  {
+    count: 1
+    kind: KIND_CPU
+  }
+]

@@ -1,0 +1,27 @@
+services:
+  triton:
+    build:
+      context: .
+      dockerfile: Dockerfile.triton
+    environment:
+      PYTHONPATH: /workspace
+      AUDIO_RAG_STORE_PATH: /data/chunks.jsonl
+      AUDIO_RAG_ASR_MODEL_SIZE: tiny
+      AUDIO_RAG_ASR_COMPUTE_TYPE: int8
+      AUDIO_RAG_ASR_DEVICE: cpu
+      AUDIO_RAG_ASR_VAD_FILTER: "true"
+    command:
+      - tritonserver
+      - --model-repository=/models
+    ports:
+      - "8000:8000"
+      - "8001:8001"
+      - "8002:8002"
+    volumes:
+      - .:/workspace
+      - ./model_repo:/models
+      - ./tmp:/data
+      - triton_cache:/root/.cache
+
+volumes:
+  triton_cache:

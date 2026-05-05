@@ -1,0 +1,6 @@
+FROM nvcr.io/nvidia/tritonserver:24.12-py3
+
+WORKDIR /workspace
+
+COPY requirements-triton.txt /tmp/requirements-triton.txt
+RUN pip install --no-cache-dir -r /tmp/requirements-triton.txt

@@ -1,0 +1,3 @@
+In this short demo podcast, the speaker explains that a small team can still build useful AI systems if it focuses on a clear user problem and keeps the feedback loop tight. The episode then shifts to retrieval augmented generation and argues that even simple chunking, indexing, and citation workflows already create a strong foundation for trustworthy question answering.
+
+Later, the speaker says that when users ask about specific claims from a podcast, the system should answer from retrieved evidence instead of improvising. The discussion also mentions that transcripts are enough for a first product slice, while full audio embeddings, ASR in Triton, and streaming LLM responses can be layered on top once the product loop is proven useful.
