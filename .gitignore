@@ -32,7 +32,8 @@ htmlcov/
 
 # Project specific
 .audio_rag/
-tmp/
+tmp/*
+!tmp/.gitkeep
 
 # Environment
 .env

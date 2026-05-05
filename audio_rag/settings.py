@@ -58,6 +58,7 @@ class TritonHttpSettings:
     model_ingest_name: str = "ingest_bls"
     model_query_name: str = "query_bls"
     model_asr_name: str = "asr_whisper"
+    model_llm_name: str = "llm_qwen"
     host_project_root: Optional[str] = None
     container_project_root: str = "/workspace"
 

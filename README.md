@@ -1,283 +1,323 @@
 # audio-rag
 
-`audio-rag` — прототип Audio RAG для небольших подкастов с **Triton-first** сценарием работы:
-
-1. поднимается Triton в Docker,
-2. пользователь передаёт аудио подкаста (`.mp3`, `.m4a`, `.wav`, `.ogg`, `.aac`),
-3. Triton транскрибирует аудио через `faster-whisper`,
-4. транскрипт режется на чанки и индексируется в локальный store,
-5. пользователь передаёт аудио-вопрос,
-6. Triton снова использует ASR,
-7. система возвращает текстовый ответ с цитатами и ссылкой на исходный аудиофайл.
-
-Проект сейчас решает локальный end-to-end сценарий `audio -> Triton -> text answer`. Это не production-версия и не полный стек из финального ТЗ, но уже runnable вертикальный срез, который можно поднимать, тестировать и развивать.
+**Audio RAG** — прототип системы для индексации подкастов и ответов на вопросы по аудио с использованием Triton Inference Server и LLM.
 
 ## Возможности
 
-- ingest подкаста через Triton: `triton-ingest-podcast`
-- текстовый вопрос через Triton: `triton-ask`
-- аудио-вопрос через Triton: `triton-ask-audio`
-- локальный transcript-first fallback без Triton
-- ASR на базе `faster-whisper`
-- JSONL-хранилище чанков
-- цитаты с `source_id`, offsets и `audio_path`
-- автоматическое преобразование локальных путей в `/workspace/...` для Triton-контейнера
-- конфигурация через Hydra
+- 🎧 Ингест подкастов через Triton (ASR + chunking + индексация)
+- 📝 Текстовые и аудио-вопросы через Triton
+- 🤖 Генерация ответов с помощью LLM (Qwen2.5-1.5B-Instruct)
+- 🔍 Поиск релевантных фрагментов с цитатами
+- 🐳 Docker Compose для быстрого запуска
+- ⚙️ Конфигурация через Hydra
 
-## Текущие ограничения
+## Быстрый старт
 
-Сейчас в проекте намеренно упрощены:
-
-- retrieval: локальный hashing embedder вместо production embeddings
-- storage: JSONL вместо Qdrant
-- orchestration: Python backend в Triton без ensemble graph и без reranker
-- generation: ответ формируется из найденного контекста без LLM-стриминга
-
-## Структура проекта
-
-```text
-.
-├── audio_rag/
-│   ├── chunking.py
-│   ├── cli.py
-│   ├── config.py
-│   ├── embeddings.py
-│   ├── models.py
-│   ├── service.py
-│   ├── settings.py
-│   ├── store.py
-│   └── triton_client.py
-├── conf/
-│   └── config.yaml
-├── model_repo/
-│   ├── asr_whisper/
-│   ├── ingest_bls/
-│   └── query_bls/
-├── tests/
-├── Dockerfile.triton
-├── docker-compose.yml
-├── main.py
-├── pyproject.toml
-├── requirements-dev.txt
-└── requirements-triton.txt
-```
-
-## Требования
-
-### Для локального клиента
-
-- Python 3.9+
-- `venv`
-- `pip`
-
-### Для Triton
-
-- Docker
-- Docker Compose
-
-## Установка локального окружения
+### 1. Клонирование и установка зависимостей
 
 ```bash
+git clone <repo-url>
+cd audio-rag
+
+# Создать виртуальное окружение
 python3 -m venv .venv
-source .venv/bin/activate
-python -m pip install --upgrade pip
-python -m pip install -r requirements-dev.txt
+source .venv/bin/activate  # Linux/macOS
+# или .venv\Scripts\activate на Windows
+
+# Установить зависимости
+pip install -e .
 ```
 
-Это установит:
-
-- сам проект в editable-режиме
-- `hydra-core`
-- `omegaconf`
-- `pytest`
-
-## Конфигурация через Hydra
-
-Базовый runtime-конфиг лежит в:
-
-```text
-conf/config.yaml
-```
-
-В конфиг вынесены:
-
-- размеры чанков
-- параметры retrieval
-- параметры store
-- HTTP-настройки Triton client
-- пути хоста и контейнера
-- параметры ASR
-
-Ключевые секции:
-
-- `chunking`
-- `embedding`
-- `retrieval`
-- `transcript`
-- `metadata`
-- `store`
-- `triton_http`
-- `triton_server`
-- `asr`
-
-## Сборка и запуск Triton
+### 2. Запуск Triton сервера
 
 ```bash
-docker compose up --build triton
-```
+# Собрать и запустить Docker контейнер с Triton
+docker-compose up -d triton
 
-Compose:
-
-- собирает `Dockerfile.triton`
-- ставит runtime-зависимости из `requirements-triton.txt`
-- публикует порты `8000`, `8001`, `8002`
-- монтирует проект в `/workspace`
-- монтирует model repository в `/models`
-- сохраняет индекс в `./tmp/chunks.jsonl`
-- кеширует Whisper-модель в volume `triton_cache`
-
-## Проверка готовности Triton
-
-```bash
-curl http://localhost:8000/v2/health/live
+# Проверить что сервер готов
 curl http://localhost:8000/v2/health/ready
 ```
 
-Проверка моделей:
+Ожидаемый ответ: пустой ответ с HTTP 200.
+
+### 3. Проверка статуса моделей
 
 ```bash
-curl http://localhost:8000/v2/models/asr_whisper
-curl http://localhost:8000/v2/models/ingest_bls
-curl http://localhost:8000/v2/models/query_bls
+# Посмотреть логи запуска (загрузка моделей занимает 2-3 минуты)
+docker-compose logs -f triton
 ```
 
-## Основной пользовательский сценарий
+Ожидаемый вывод:
+```
+"successfully loaded 'asr_whisper'"
+"successfully loaded 'ingest_bls'"
+"successfully loaded 'query_bls'"
+"successfully loaded 'llm_qwen'"
+```
 
-### 1. Индексация подкаста
+## Использование
+
+### Ингест подкаста
+
+Загрузить аудиофайл подкаста в индекс:
 
 ```bash
-python main.py triton-ingest-podcast \
+# Через Docker (файл должен быть доступен в /workspace)
+docker-compose exec triton python3 main.py triton-ingest-podcast \
   --source my-podcast \
-  --audio-file tests/Подкаст.mp3
+  --audio-file /workspace/tests/Подкаст.mp3
+
+# Или локально (файл на хост-машине)
+python3 main.py triton-ingest-podcast \
+  --source my-podcast \
+  --audio-file ./tests/Подкаст.mp3
 ```
 
-CLI автоматически преобразует путь в контейнерный вид `/workspace/tests/Подкаст.mp3`, если файл лежит внутри репозитория.
+Параметры:
+- `--source` — идентификатор источника (используется для цитат)
+- `--audio-file` — путь к аудиофайлу (MP3, M4A, WAV, OGG, AAC)
+- `--transcript-file` — (опционально) готовый транскрипт
 
-Пример ответа:
-
-```json
-{
-  "source_id": "my-podcast",
-  "indexed_chunks": 1,
-  "audio_path": "/workspace/tests/Подкаст.mp3",
-  "transcript_origin": "asr_whisper"
-}
-```
-
-### 2. Аудио-вопрос
+### Задать вопрос (текст)
 
 ```bash
-python main.py triton-ask-audio \
-  --question-audio-file tests/Вопрос.m4a
+docker-compose exec triton python3 main.py triton-ask "О чём говорилось в подкасте?"
 ```
 
-Пример ответа:
+### Задать вопрос (аудио)
 
-```text
-Resolved question transcript: Какой курс доллара сегодня?
-По локальному индексу лучший контекст для запроса 'Какой курс доллара сегодня?': ...
+```bash
+docker-compose exec triton python3 main.py triton-ask-audio \
+  --question-audio-file /workspace/tests/Вопрос.m4a
+```
+
+Параметры:
+- `--top-k` — количество релевантных чанков (по умолчанию 5)
+
+### Пример ответа с LLM
+
+```
+Resolved question transcript: О чём говорилось в подкасте?
+
+В подкасте обсуждали курс доллара. На 5 мая 2022 года курс доллара 
+составлял 75 рублей и 50 копеек к российскому рублю.
 
 Citations:
-- my-podcast [0:18] score=0.320: ... | audio=/workspace/tests/Подкаст.mp3
+- my-podcast [0:18]: На сегодняшний день 5 мая 2022 года курс доллара...
 ```
 
-### 3. Текстовый вопрос
+## Структура проекта
+
+```
+.
+├── audio_rag/              # Основной код
+│   ├── __init__.py
+│   ├── chunking.py         # Нарезка текста на чанки
+│   ├── cli.py              # CLI команды
+│   ├── config.py           # Загрузка конфигурации (Hydra)
+│   ├── embeddings.py       # Эмбеддинги (хеширование)
+│   ├── models.py           # Pydantic модели данных
+│   ├── service.py          # Бизнес-логика
+│   ├── settings.py         # Настройки приложения
+│   ├── store.py            # JSONL хранилище чанков
+│   └── triton_client.py    # Клиент для Triton
+├── conf/                   # Конфигурационные файлы Hydra
+│   └── config.yaml
+├── model_repo/             # Triton model repository
+│   ├── asr_whisper/        # ASR модель (faster-whisper)
+│   ├── ingest_bls/         # Ingest pipeline (Python backend)
+│   ├── query_bls/          # Query pipeline (Python backend)
+│   └── llm_qwen/           # LLM модель (Qwen2.5-1.5B-Instruct)
+├── tests/                  # Тестовые аудиофайлы
+├── tmp/                    # Временные файлы (хранилище чанков)
+├── sitecustomize.py        # Исправление sys.path для Triton
+├── Dockerfile.triton       # Docker образ Triton
+├── docker-compose.yml      # Docker Compose конфигурация
+├── requirements-triton.txt # Зависимости для Triton
+├── main.py                 # Точка входа CLI
+└── README.md
+```
+
+## Конфигурация
+
+Конфигурация управляется через Hydra. Основной файл: `conf/config.yaml`.
+
+### Переменные окружения
+
+| Переменная | Описание | По умолчанию |
+|------------|----------|--------------|
+| `AUDIO_RAG_STORE_PATH` | Путь к файлу хранилища чанков | `./tmp/chunks.jsonl` |
+| `AUDIO_RAG_ASR_MODEL_SIZE` | Размер модели Whisper | `tiny` |
+| `AUDIO_RAG_ASR_COMPUTE_TYPE` | Тип вычислений ASR | `int8` |
+| `AUDIO_RAG_ASR_DEVICE` | Устройство для ASR | `cpu` |
+| `AUDIO_RAG_ASR_VAD_FILTER` | Включить VAD фильтрацию | `true` |
+| `AUDIO_RAG_USE_LLM` | Использовать LLM для ответов | `true` |
+| `AUDIO_RAG_LLM_MODEL` | Модель LLM | `Qwen/Qwen2.5-1.5B-Instruct` |
+| `AUDIO_RAG_LLM_DEVICE` | Устройство для LLM | `cpu` |
+| `AUDIO_RAG_LLM_MAX_TOKENS` | Максимум токенов в ответе | `512` |
+
+### Переопределение через CLI
 
 ```bash
-python main.py triton-ask "О чём говорилось в подкасте?"
+python3 main.py triton-ask "Вопрос" \
+  retrieval.default_top_k=10
 ```
 
-## Локальный режим без Triton
+## Архитектура
 
-### Индексация готового транскрипта
+### Компоненты системы
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      Triton Server                               │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌───────────┐ │
+│  │ asr_whisper │ │ ingest_bls  │ │  query_bls  │ │ llm_qwen  │ │
+│  │ (ASR)       │ │ (Python)    │ │ (Python)    │ │ (LLM)     │ │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └───────────┘ │
+└─────────────────────────────────────────────────────────────────┘
+         │                │                │              │
+         ▼                ▼                ▼              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│            JSONL Chunk Store (tmp/chunks.jsonl)                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Ingest Pipeline
+
+```
+Аудиофайл → ASR (Whisper) → Транскрипт → Chunking → Индексация
+```
+
+### Query Pipeline
+
+```
+Вопрос (текст/аудио) 
+    → ASR (если аудио) 
+    → Retrieval (поиск релевантных чанков) 
+    → LLM (генерация ответа) 
+    → Ответ с цитатами
+```
+
+### Модели Triton
+
+| Модель | Тип | Назначение |
+|--------|-----|------------|
+| `asr_whisper` | Python backend | Распознавание речи (faster-whisper) |
+| `ingest_bls` | Python backend | Индексация подкастов |
+| `query_bls` | Python backend | Обработка запросов, retrieval |
+| `llm_qwen` | Python backend | Генерация ответов (Qwen2.5-1.5B) |
+
+## Текущие ограничения
+
+Проект является **прототипом** и содержит упрощения:
+
+| Компонент | Текущее решение | План по ТЗ |
+|-----------|-----------------|------------|
+| ASR | faster-whisper (Python backend) | ONNX Whisper |
+| Эмбеддинги | Хеширование текста | BGE-M3 + CLAP |
+| Хранилище | JSONL файл | Qdrant |
+| Retrieval | Простой поиск по хешу | Vector search + Reranker |
+| LLM | ✅ Qwen2.5-1.5B-Instruct | Qwen с стримингом |
+| Orchestration | Python backend | Ensemble + BLS |
+
+## Разработка
+
+### Запуск тестов
 
 ```bash
-python main.py ingest-text \
-  --source sample \
-  --file examples/sample_transcript.txt
+pip install -e ".[dev]"
+pytest tests/
 ```
 
-### Индексация подкаста с sidecar transcript
+### Линтинг
 
 ```bash
-python main.py ingest-podcast \
-  --source sample \
-  --audio-file tests/Подкаст.mp3 \
-  --transcript-file tests/Подкаст.transcript.txt
+ruff check audio_rag/
+mypy audio_rag/
 ```
 
-### Локальный вопрос
+### Сборка Docker образа
 
 ```bash
-python main.py ask "what was said about retrieval?"
-python main.py ask-audio --question-audio-file tests/Вопрос.m4a --question-transcript-file tests/Вопрос.question.txt
+docker-compose build --no-cache triton
 ```
 
-## Triton-модели
-
-### `asr_whisper`
-
-Назначение: ASR для входного аудио.
-
-Использует:
-
-- `faster-whisper`
-- `AUDIO_RAG_ASR_MODEL_SIZE`
-- `AUDIO_RAG_ASR_COMPUTE_TYPE`
-- `AUDIO_RAG_ASR_DEVICE`
-- `AUDIO_RAG_ASR_VAD_FILTER`
-
-### `ingest_bls`
-
-Назначение: ingest подкаста.
-
-Поведение:
-
-- принимает `source_id`, `audio_path`, optional `transcript_path`, metadata
-- если транскрипт не передан, вызывает `asr_whisper`
-- индексирует результат через service layer
-
-### `query_bls`
-
-Назначение: query по уже загруженным данным.
-
-Поведение:
-
-- принимает текст запроса или аудио-вопрос
-- при audio-вопросе вызывает `asr_whisper`
-- делает retrieval в JSONL store
-- возвращает `answer`, `resolved_query_text`, `citations`
-
-## Тесты
+### Очистка
 
 ```bash
-python -m unittest tests.test_mvp tests.test_audio_workflow tests.test_triton_client
-pytest -q
+# Остановить контейнеры и удалить volumes
+docker-compose down -v
+
+# Очистить __pycache__
+find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null
+
+# Очистить хранилище чанков
+rm -f tmp/chunks.jsonl
 ```
 
-## Кодстайл и принципы текущей версии
+## Устранение неполадок
 
-- конфигурация вынесена в Hydra
-- runtime-параметры не разбросаны по файлам
-- сервисный слой отделён от Triton transport слоя
-- клиентский слой не требует ручного `/workspace/...` для файлов внутри репозитория
-- удалены `from __future__ import annotations`
-- удалены динамические `__import__(...)`
+### Ошибка: ModuleNotFoundError: No module named 'packaging'
 
-## Что логично делать дальше
+Эта ошибка связана с конфликтом DALI backend в Triton. Решение уже включено в проект через `sitecustomize.py`.
 
-1. заменить hashing embedder на нормальные embeddings,
-2. вынести store в Qdrant,
-3. добавить reranking,
-4. подключить LLM для нормальной генерации ответа,
-5. добавить UI и/или HTTP API поверх CLI.
+Если проблема возникает, убедитесь что:
+1. `sitecustomize.py` существует в корне проекта
+2. Dockerfile.triton копирует его в `/usr/local/lib/python3.12/dist-packages/`
+
+### Ошибка: EOFError: EOF read where object expected
+
+Повреждены `.pyc` файлы. Очистите кэш:
+
+```bash
+find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null
+find . -type f -name "*.pyc" -delete 2>/dev/null
+docker-compose build --no-cache triton
+```
+
+### LLM модель не загружается
+
+Проверьте логи:
+
+```bash
+docker-compose logs triton | grep -E "(llm_qwen|failed|error)" -i
+```
+
+Возможные причины:
+1. Недостаточно памяти (требуется ~4GB RAM для Qwen2.5-1.5B)
+2. Превышен timeout загрузки модели
+
+Временное решение — отключить LLM:
+```yaml
+# docker-compose.yml
+AUDIO_RAG_USE_LLM: "false"
+```
+
+### Ответы шаблонные вместо LLM
+
+Проверьте:
+1. Загружена ли модель: `curl http://localhost:8000/v2/models/llm_qwen`
+2. Включён ли LLM: `docker-compose exec triton env | grep AUDIO_RAG_USE_LLM`
+
+## Системные требования
+
+- Docker Desktop 4.0+
+- Docker Compose 2.0+
+- 8GB RAM минимум (для LLM)
+- 10GB свободного места на диске (для моделей)
+
+## План развития
+
+См. `TZ_audio_rag.md` для полного технического задания.
+
+### Ближайшие шаги
+
+1. ✅ **LLM**: добавлен Qwen2.5-1.5B для генерации ответов
+2. **Эмбеддинги**: заменить хеширование на BGE-M3 для текста и CLAP для аудио
+3. **Хранилище**: миграция с JSONL на Qdrant для векторного поиска
+4. **Стриминг**: добавить стриминг токенов от LLM
+5. **ONNX**: миграция моделей в ONNX формат для оптимизации
+
+## Лицензия
+
+MIT

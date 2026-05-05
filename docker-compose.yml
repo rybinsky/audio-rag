@@ -10,6 +10,11 @@ services:
       AUDIO_RAG_ASR_COMPUTE_TYPE: int8
       AUDIO_RAG_ASR_DEVICE: cpu
       AUDIO_RAG_ASR_VAD_FILTER: "true"
+      # LLM settings
+      AUDIO_RAG_USE_LLM: "true"
+      AUDIO_RAG_LLM_MODEL: Qwen/Qwen2.5-1.5B-Instruct
+      AUDIO_RAG_LLM_DEVICE: cpu
+      AUDIO_RAG_LLM_MAX_TOKENS: "512"
     command:
       - tritonserver
       - --model-repository=/models

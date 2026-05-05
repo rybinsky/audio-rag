@@ -1,0 +1,48 @@
+name: "llm_qwen"
+backend: "python"
+max_batch_size: 0
+
+input [
+  {
+    name: "INPUT_QUERY"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  },
+  {
+    name: "INPUT_CONTEXT"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  },
+  {
+    name: "INPUT_SYSTEM_PROMPT"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+    optional: true
+  },
+  {
+    name: "INPUT_MAX_TOKENS"
+    data_type: TYPE_INT32
+    dims: [ 1 ]
+    optional: true
+  }
+]
+
+output [
+  {
+    name: "OUTPUT_ANSWER"
+    data_type: TYPE_STRING
+    dims: [ 1 ]
+  }
+]
+
+instance_group [
+  {
+    count: 1
+    kind: KIND_CPU
+  }
+]
+
+# LLM model takes time to load and process
+response_cache {
+  enable: false
+}

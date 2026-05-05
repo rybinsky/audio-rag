@@ -23,6 +23,8 @@ class TritonPythonModel:
         )
         self._encoding = self._settings.transcript.encoding
         self._asr_model_name = self._settings.triton_http.model_asr_name
+        self._llm_model_name = self._settings.triton_http.model_llm_name
+        self._use_llm = os.environ.get("AUDIO_RAG_USE_LLM", "true").lower() == "true"
 
     def execute(self, requests):
         responses = []
@@ -32,6 +34,7 @@ class TritonPythonModel:
             question_transcript_path = self._decode_string(inference_request, "INPUT_QUESTION_TRANSCRIPT_PATH")
             top_k = self._decode_top_k(inference_request)
 
+            # Resolve query text from audio if provided
             if question_audio_path:
                 if question_transcript_path:
                     resolved_query_text = Path(question_transcript_path).expanduser().resolve().read_text(
@@ -39,10 +42,19 @@ class TritonPythonModel:
                     ).strip()
                 else:
                     resolved_query_text = self._transcribe_audio(Path(question_audio_path).expanduser().resolve())
-                answer = self._service.ask(resolved_query_text, top_k=top_k)
-                answer.resolved_query_text = resolved_query_text
             else:
-                answer = self._service.ask(query_text, top_k=top_k)
+                resolved_query_text = query_text
+
+            # Get answer from service (includes retrieval and citations)
+            answer = self._service.ask(resolved_query_text, top_k=top_k)
+            answer.resolved_query_text = resolved_query_text
+
+            # If LLM is enabled and we have citations, generate answer with LLM
+            if self._use_llm and answer.citations:
+                context = self._format_context(answer.citations)
+                llm_answer = self._call_llm(resolved_query_text, context)
+                if llm_answer:
+                    answer.answer = llm_answer
 
             payload = {
                 "answer": answer.answer,
@@ -51,6 +63,39 @@ class TritonPythonModel:
             }
             responses.append(self._build_response(payload))
         return responses
+
+    def _format_context(self, citations) -> str:
+        """Format citations as context string for the LLM."""
+        context_parts = []
+        for i, citation in enumerate(citations, start=1):
+            context_parts.append(f"[{i}] {citation.snippet}")
+        return "\n".join(context_parts)
+
+    def _call_llm(self, query: str, context: str) -> str:
+        """Call the LLM model to generate an answer."""
+        try:
+            infer_input_query = pb_utils.Tensor(
+                "INPUT_QUERY",
+                np.array([query.encode(self._encoding)], dtype=object),
+            )
+            infer_input_context = pb_utils.Tensor(
+                "INPUT_CONTEXT",
+                np.array([context.encode(self._encoding)], dtype=object),
+            )
+            infer_request = pb_utils.InferenceRequest(
+                model_name=self._llm_model_name,
+                requested_output_names=["OUTPUT_ANSWER"],
+                inputs=[infer_input_query, infer_input_context],
+            )
+            infer_response = infer_request.exec()
+            if infer_response.has_error():
+                # If LLM fails, return None to use the template answer
+                return None
+            answer_tensor = pb_utils.get_output_tensor_by_name(infer_response, "OUTPUT_ANSWER")
+            return answer_tensor.as_numpy()[0].decode(self._encoding)
+        except Exception:
+            # If LLM fails, return None to use the template answer
+            return None
 
     def _transcribe_audio(self, audio_path: Path) -> str:
         infer_input = pb_utils.Tensor(
