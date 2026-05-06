@@ -26,7 +26,7 @@ class AudioRAGAudioWorkflowTest(unittest.TestCase):
         settings = load_settings()
         with tempfile.TemporaryDirectory() as tmp_dir:
             temp_path = Path(tmp_dir)
-            store_path = temp_path / "chunks.jsonl"
+
             podcast_audio_path = temp_path / PODCAST_AUDIO_FILENAME
             podcast_transcript_path = temp_path / PODCAST_TRANSCRIPT_FILENAME
             question_audio_path = temp_path / QUESTION_AUDIO_FILENAME

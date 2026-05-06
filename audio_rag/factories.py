@@ -1,28 +1,45 @@
 """Factories for creating embedders and stores based on configuration."""
 
+import os
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-
-from .embedders import BaseEmbedder, TritonBGEEmbedder
+from .embedders import BaseEmbedder, BGEEmbedder
 from .settings import AppSettings
 from .stores import BaseStore, JsonlChunkStore, QdrantChunkStore
-from .triton_reranker import TritonReranker
+
+# Check if we're running inside Triton server
+# Inside Triton, we should use direct implementations (not Triton clients)
+IS_TRITON_SERVER = os.environ.get("TRITON_SERVER", "false").lower() == "true"
 
 
 def create_embedder(settings: AppSettings, triton_url: str = "localhost:8000") -> BaseEmbedder:
-    """Create embedder using Triton BGE.
+    """Create embedder based on environment.
+
+    Inside Triton server: uses BGEEmbedder (direct implementation).
+    On client: uses TritonBGEEmbedder (calls Triton through HTTP API).
 
     Args:
         settings: Application settings
-        triton_url: Triton server URL
+        triton_url: Triton server URL (used only on client)
 
     Returns:
-        TritonBGEEmbedder instance
+        BaseEmbedder instance
+
+    Raises:
+        ImportError: If tritonclient is not available on client
     """
-    return TritonBGEEmbedder(
-        settings=settings.triton_embedder,
-        triton_url=triton_url,
-    )
+    if IS_TRITON_SERVER:
+        # Inside Triton server: use direct implementation
+        return BGEEmbedder(settings.bge)
+    else:
+        # On client: use Triton client
+        # Import here to avoid tritonclient dependency in Triton server
+        from .embedders.triton_bge import TritonBGEEmbedder
+        return TritonBGEEmbedder(
+            settings=settings.triton_embedder,
+            triton_url=triton_url,
+        )
 
 
 def create_store(settings: AppSettings, explicit_path: Path = None) -> BaseStore:
@@ -61,17 +78,31 @@ def create_store(settings: AppSettings, explicit_path: Path = None) -> BaseStore
         )
 
 
-def create_reranker(settings: AppSettings, triton_url: str = "localhost:8000") -> TritonReranker:
-    """Create reranker using Triton.
+def create_reranker(settings: AppSettings, triton_url: str = "localhost:8000"):
+    """Create reranker based on environment.
+
+    Inside Triton server: uses SearchReranker (direct implementation).
+    On client: uses TritonReranker (calls Triton through HTTP API).
 
     Args:
         settings: Application settings
-        triton_url: Triton server URL
+        triton_url: Triton server URL (used only on client)
 
     Returns:
-        TritonReranker instance
+        Reranker instance
+
+    Raises:
+        ImportError: If tritonclient is not available on client
     """
-    return TritonReranker(
-        settings=settings.triton_embedder,
-        triton_url=triton_url,
-    )
+    if IS_TRITON_SERVER:
+        # Inside Triton server: use direct implementation
+        from .reranker import SearchReranker
+        return SearchReranker(settings.reranker)
+    else:
+        # On client: use Triton client
+        # Import here to avoid tritonclient dependency in Triton server
+        from .triton_reranker import TritonReranker
+        return TritonReranker(
+            settings=settings.triton_embedder,
+            triton_url=triton_url,
+        )

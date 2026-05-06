@@ -1,6 +1,7 @@
 import json
 import os
 from pathlib import Path
+from dataclasses import asdict
 
 import numpy as np
 import triton_python_backend_utils as pb_utils
@@ -15,9 +16,9 @@ class TritonPythonModel:
         del args
         self._settings = load_settings()
 
-        # Use factories to create components based on configuration
+        # Use factories to create components (will use direct implementations inside Triton server)
         store = create_store(self._settings)
-        embedder = create_embedder(self._settings, triton_url="localhost:8000")
+        embedder = create_embedder(self._settings)
         reranker = create_reranker(self._settings)
 
         self._service = AudioRAGService(
@@ -28,108 +29,95 @@ class TritonPythonModel:
         )
         self._encoding = self._settings.transcript.encoding
         self._asr_model_name = self._settings.triton_http.model_asr_name
-        self._llm_model_name = self._settings.triton_http.model_llm_name
-        self._use_llm = os.environ.get("AUDIO_RAG_USE_LLM", "true").lower() == "true"
 
     def execute(self, requests):
         responses = []
-        for inference_request in requests:
-            query_text = self._decode_string(inference_request, "INPUT_QUERY_TEXT")
-            question_audio_path = self._decode_string(inference_request, "INPUT_QUESTION_AUDIO_PATH")
-            question_transcript_path = self._decode_string(inference_request, "INPUT_QUESTION_TRANSCRIPT_PATH")
-            top_k = self._decode_top_k(inference_request)
 
-            # Resolve query text from audio if provided
-            if question_audio_path:
-                if question_transcript_path:
-                    resolved_query_text = Path(question_transcript_path).expanduser().resolve().read_text(
-                        encoding=self._encoding
-                    ).strip()
-                else:
-                    resolved_query_text = self._transcribe_audio(Path(question_audio_path).expanduser().resolve())
-            else:
-                resolved_query_text = query_text
+        for request in requests:
+            # Get query text (may be empty if using audio)
+            query_text = ""
+            try:
+                query_text_tensor = pb_utils.get_input_tensor_by_name(request, "INPUT_QUERY_TEXT")
+                if query_text_tensor is not None:
+                    query_text_bytes = query_text_tensor.as_numpy()[0]
+                    if isinstance(query_text_bytes, bytes) and query_text_bytes:
+                        query_text = query_text_bytes.decode(self._encoding)
+            except Exception:
+                pass
 
-            # Get answer from service (includes retrieval and citations)
-            answer = self._service.ask(resolved_query_text, top_k=top_k)
-            answer.resolved_query_text = resolved_query_text
+            # Get question audio path (may be empty)
+            question_audio_path = ""
+            try:
+                audio_path_tensor = pb_utils.get_input_tensor_by_name(request, "INPUT_QUESTION_AUDIO_PATH")
+                if audio_path_tensor is not None:
+                    audio_path_bytes = audio_path_tensor.as_numpy()[0]
+                    if isinstance(audio_path_bytes, bytes) and audio_path_bytes:
+                        question_audio_path = audio_path_bytes.decode(self._encoding)
+            except Exception:
+                pass
 
-            # If LLM is enabled and we have citations, generate answer with LLM
-            if self._use_llm and answer.citations:
-                context = self._format_context(answer.citations)
-                llm_answer = self._call_llm(resolved_query_text, context)
-                if llm_answer:
-                    answer.answer = llm_answer
+            # Get question transcript path (may be empty)
+            question_transcript_path = ""
+            try:
+                transcript_path_tensor = pb_utils.get_input_tensor_by_name(request, "INPUT_QUESTION_TRANSCRIPT_PATH")
+                if transcript_path_tensor is not None:
+                    transcript_path_bytes = transcript_path_tensor.as_numpy()[0]
+                    if isinstance(transcript_path_bytes, bytes) and transcript_path_bytes:
+                        question_transcript_path = transcript_path_bytes.decode(self._encoding)
+            except Exception:
+                pass
 
-            payload = {
+            # Get top_k
+            top_k = self._settings.retrieval.default_top_k
+            try:
+                top_k_tensor = pb_utils.get_input_tensor_by_name(request, "INPUT_TOP_K")
+                if top_k_tensor is not None:
+                    top_k = int(top_k_tensor.as_numpy()[0])
+            except Exception:
+                pass
+
+            # Determine the query text to use
+            resolved_query_text = query_text
+
+            # If no direct text, try transcript file
+            if not resolved_query_text and question_transcript_path:
+                transcript_file = Path(question_transcript_path)
+                if transcript_file.exists():
+                    resolved_query_text = transcript_file.read_text(encoding=self._encoding).strip()
+
+            # If still no text, perform ASR on audio
+            if not resolved_query_text and question_audio_path:
+                asr_request = pb_utils.InferenceRequest(
+                    model_name=self._asr_model_name,
+                    requested_output_names=["OUTPUT_TRANSCRIPT"],
+                    inputs=[
+                        pb_utils.Tensor("INPUT_AUDIO_PATH", np.array([question_audio_path.encode(self._encoding)], dtype=object))
+                    ]
+                )
+                asr_response = asr_request.exec()
+                transcript = pb_utils.get_output_tensor_by_name(asr_response, "OUTPUT_TRANSCRIPT").as_numpy()[0]
+                if isinstance(transcript, bytes):
+                    transcript = transcript.decode(self._encoding)
+                resolved_query_text = transcript.strip()
+
+            # Perform the query
+            answer = self._service.ask(resolved_query_text, top_k=top_k, use_reranker=True)
+
+            # Convert to dict for JSON serialization
+            result = {
                 "answer": answer.answer,
                 "resolved_query_text": answer.resolved_query_text,
-                "citations": [citation.__dict__ for citation in answer.citations],
+                "citations": [asdict(citation) for citation in answer.citations],
             }
-            responses.append(self._build_response(payload))
+
+            output_tensor = pb_utils.Tensor(
+                "OUTPUT_ANSWER",
+                np.array([json.dumps(result, ensure_ascii=False).encode(self._encoding)], dtype=object)
+            )
+            response = pb_utils.InferenceResponse(output_tensors=[output_tensor])
+            responses.append(response)
+
         return responses
 
-    def _format_context(self, citations) -> str:
-        """Format citations as context string for the LLM."""
-        context_parts = []
-        for i, citation in enumerate(citations, start=1):
-            context_parts.append(f"[{i}] {citation.snippet}")
-        return "\n".join(context_parts)
-
-    def _call_llm(self, query: str, context: str) -> str:
-        """Call the LLM model to generate an answer."""
-        try:
-            infer_input_query = pb_utils.Tensor(
-                "INPUT_QUERY",
-                np.array([query.encode(self._encoding)], dtype=object),
-            )
-            infer_input_context = pb_utils.Tensor(
-                "INPUT_CONTEXT",
-                np.array([context.encode(self._encoding)], dtype=object),
-            )
-            infer_request = pb_utils.InferenceRequest(
-                model_name=self._llm_model_name,
-                requested_output_names=["OUTPUT_ANSWER"],
-                inputs=[infer_input_query, infer_input_context],
-            )
-            infer_response = infer_request.exec()
-            if infer_response.has_error():
-                # If LLM fails, return None to use the template answer
-                return None
-            answer_tensor = pb_utils.get_output_tensor_by_name(infer_response, "OUTPUT_ANSWER")
-            return answer_tensor.as_numpy()[0].decode(self._encoding)
-        except Exception:
-            # If LLM fails, return None to use the template answer
-            return None
-
-    def _transcribe_audio(self, audio_path: Path) -> str:
-        infer_input = pb_utils.Tensor(
-            "INPUT_AUDIO_PATH",
-            np.array([str(audio_path).encode(self._encoding)], dtype=object),
-        )
-        infer_request = pb_utils.InferenceRequest(
-            model_name=self._asr_model_name,
-            requested_output_names=["OUTPUT_TRANSCRIPT"],
-            inputs=[infer_input],
-        )
-        infer_response = infer_request.exec()
-        if infer_response.has_error():
-            raise RuntimeError(infer_response.error().message())
-        transcript_tensor = pb_utils.get_output_tensor_by_name(infer_response, "OUTPUT_TRANSCRIPT")
-        return transcript_tensor.as_numpy()[0].decode(self._encoding)
-
-    def _build_response(self, payload):
-        output_tensor = pb_utils.Tensor(
-            "OUTPUT_ANSWER",
-            np.array([json.dumps(payload, ensure_ascii=False).encode(self._encoding)], dtype=object),
-        )
-        return pb_utils.InferenceResponse(output_tensors=[output_tensor])
-
-    def _decode_string(self, inference_request, tensor_name):
-        tensor = pb_utils.get_input_tensor_by_name(inference_request, tensor_name)
-        return tensor.as_numpy()[0].decode(self._encoding)
-
-    def _decode_top_k(self, inference_request):
-        tensor = pb_utils.get_input_tensor_by_name(inference_request, "INPUT_TOP_K")
-        value = int(tensor.as_numpy()[0])
-        return value if value > 0 else self._settings.retrieval.default_top_k
+    def finalize(self):
+        pass

@@ -57,8 +57,8 @@ paths:
   workspace_dir: tmp
 
 qdrant:
-  host: localhost
-  port: 6333
+  host: ${oc.env:QDRANT_HOST,localhost}
+  port: ${oc.env:QDRANT_PORT,6333}
   collection_name: audio_rag_chunks
   vector_size: 1024
   distance: Cosine

@@ -2,12 +2,17 @@
 
 import uuid
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Protocol
 
 from .chunking import chunk_text
 from .embedders import BaseEmbedder
 from .models import Chunk, Citation, QueryAnswer, SearchResult
-from .triton_reranker import TritonReranker
+
+
+class RerankerProtocol(Protocol):
+    """Protocol for reranker objects."""
+    def rerank(self, query: str, results: List[SearchResult], top_k: Optional[int] = None) -> List[SearchResult]:
+        ...
 from .settings import AppSettings
 from .stores import BaseStore
 
@@ -19,7 +24,7 @@ class AudioRAGService:
         self,
         store: BaseStore,
         embedder: BaseEmbedder,
-        reranker: TritonReranker,
+        reranker: RerankerProtocol,
         settings: AppSettings,
     ) -> None:
         self._store = store

@@ -1,8 +1,8 @@
-"""Search reranker using FlagEmbedding library."""
+"""Search reranker using sentence-transformers library."""
 
 from typing import List, Optional, Tuple
 
-from FlagEmbedding import FlagReranker
+from sentence_transformers import CrossEncoder
 
 from .settings import RerankerSettings
 
@@ -21,12 +21,11 @@ class SearchReranker:
             settings: Reranker settings containing model configuration
         """
         self._settings = settings
-        self._reranker = FlagReranker(
+        self._reranker = CrossEncoder(
             settings.model_name,
-            use_fp16=settings.device == "cuda",
+            max_length=settings.max_length,
             device=settings.device,
         )
-        self._max_length = settings.max_length
 
     def rerank_texts(
         self,
@@ -51,13 +50,9 @@ class SearchReranker:
         pairs = [[query, text] for text in texts]
 
         # Get scores from reranker
-        scores = self._reranker.compute_score(
-            pairs,
-            max_length=self._max_length,
-            normalize=True,  # Normalize scores to [0, 1] range
-        )
+        scores = self._reranker.predict(pairs)
 
-        # Handle single text case (compute_score returns float instead of list)
+        # Handle single text case (predict returns float instead of list)
         if isinstance(scores, float):
             scores = [scores]
 

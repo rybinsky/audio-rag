@@ -97,6 +97,7 @@ class QdrantSettings:
 class BGESettings:
     model_name: str = "BAAI/bge-m3"
     device: str = "cpu"
+    normalize_embeddings: bool = True
     max_length: int = 512
     batch_size: int = 32
 

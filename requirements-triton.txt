@@ -14,4 +14,3 @@ qdrant-client>=1.7,<2.0
 
 # Embeddings
 sentence-transformers>=2.2,<3.0
-FlagEmbed>=1.2,<2.0

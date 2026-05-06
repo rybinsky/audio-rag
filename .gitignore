@@ -35,6 +35,18 @@ htmlcov/
 tmp/*
 !tmp/.gitkeep
 
+# Test Data
+# Audio files should be stored externally or in a separate test data repository
+tests/*.mp3
+tests/*.m4a
+tests/*.wav
+tests/*.ogg
+tests/*.flac
+
+# Model Cache
+.cache/
+*.cache/
+
 # Environment
 .env
 .env.local

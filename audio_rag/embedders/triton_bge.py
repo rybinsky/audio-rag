@@ -29,6 +29,13 @@ class TritonBGEEmbedder(BaseEmbedder):
         """
         self._settings = settings
         self._triton_url = triton_url
+
+        # Remove scheme from URL if present (tritonclient doesn't accept http://)
+        if triton_url.startswith("http://"):
+            triton_url = triton_url[7:]  # Remove "http://"
+        elif triton_url.startswith("https://"):
+            triton_url = triton_url[8:]  # Remove "https://"
+
         self._client = httpclient.InferenceServerClient(url=triton_url)
         self._model_name = settings.bge_model_name
 

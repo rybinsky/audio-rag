@@ -1,5 +1,6 @@
 """Qdrant-based vector store for audio RAG chunks."""
 
+import time
 from pathlib import Path
 from typing import Dict, Iterable, List, Optional
 
@@ -21,7 +22,7 @@ class QdrantChunkStore(BaseStore):
             host=settings.host,
             port=settings.port,
         )
-        self._ensure_collection()
+        self._collection_ensured = False  # Lazy initialization
 
     @property
     def path(self) -> str:
@@ -29,21 +30,40 @@ class QdrantChunkStore(BaseStore):
         return f"qdrant://{self._settings.host}:{self._settings.port}/{self._settings.collection_name}"
 
     def _ensure_collection(self) -> None:
-        """Create collection if it doesn't exist."""
-        collections = self._client.get_collections().collections
-        collection_names = [c.name for c in collections]
+        """Create collection if it doesn't exist.
 
-        if self._settings.collection_name not in collection_names:
-            self._client.create_collection(
-                collection_name=self._settings.collection_name,
-                vectors_config=VectorParams(
-                    size=self._settings.vector_size,
-                    distance=Distance.COSINE,
-                ),
-            )
+        Uses lazy initialization and retry logic to handle connection issues.
+        """
+        if self._collection_ensured:
+            return
+
+        max_retries = 5
+        retry_delay = 1.0
+
+        for attempt in range(max_retries):
+            try:
+                collections = self._client.get_collections().collections
+                collection_names = [c.name for c in collections]
+
+                if self._settings.collection_name not in collection_names:
+                    self._client.create_collection(
+                        collection_name=self._settings.collection_name,
+                        vectors_config=VectorParams(
+                            size=self._settings.vector_size,
+                            distance=Distance.COSINE,
+                        ),
+                    )
+                self._collection_ensured = True
+                return
+            except Exception as e:
+                if attempt == max_retries - 1:
+                    raise
+                time.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
 
     def add_chunks(self, chunks: Iterable[Chunk]) -> None:
         """Add chunks to the Qdrant collection."""
+        self._ensure_collection()  # Lazy initialization
         points = []
         for chunk in chunks:
             if not chunk.embedding:
@@ -78,6 +98,7 @@ class QdrantChunkStore(BaseStore):
 
     def load_chunks(self) -> List[Chunk]:
         """Load all chunks from Qdrant (for compatibility, use sparingly)."""
+        self._ensure_collection()  # Lazy initialization
         chunks = []
 
         # Scroll through all points
@@ -102,11 +123,13 @@ class QdrantChunkStore(BaseStore):
 
     def count_chunks(self) -> int:
         """Count total number of chunks in the collection."""
+        self._ensure_collection()  # Lazy initialization
         result = self._client.count(collection_name=self._settings.collection_name)
         return result.count
 
     def list_sources(self) -> List[str]:
         """List all unique source IDs in the collection."""
+        self._ensure_collection()  # Lazy initialization
         # Use scroll to get all unique source_ids
         sources = set()
         offset = None
@@ -131,8 +154,10 @@ class QdrantChunkStore(BaseStore):
 
     def clear(self) -> None:
         """Delete all chunks from the collection."""
+        self._ensure_collection()  # Ensure collection exists first
         # Delete the collection and recreate it
         self._client.delete_collection(collection_name=self._settings.collection_name)
+        self._collection_ensured = False
         self._ensure_collection()
 
     def search(
@@ -151,6 +176,8 @@ class QdrantChunkStore(BaseStore):
         Returns:
             List of SearchResult objects sorted by score (descending)
         """
+        self._ensure_collection()  # Lazy initialization
+
         # Build filter if source_filter is provided
         query_filter = None
         if source_filter:
@@ -163,10 +190,10 @@ class QdrantChunkStore(BaseStore):
                 ]
             )
 
-        # Perform vector search
-        results = self._client.search(
+        # Perform vector search using new query_points API
+        response = self._client.query_points(
             collection_name=self._settings.collection_name,
-            query_vector=query_embedding,
+            query=query_embedding,
             limit=top_k,
             query_filter=query_filter,
             with_payload=True,
@@ -175,7 +202,7 @@ class QdrantChunkStore(BaseStore):
 
         # Convert to SearchResult objects
         search_results = []
-        for point in results:
+        for point in response.points:
             chunk = self._point_to_chunk(point)
             score = point.score
             search_results.append(SearchResult(chunk=chunk, score=score))
@@ -188,6 +215,7 @@ class QdrantChunkStore(BaseStore):
         Args:
             source_id: Source ID to delete
         """
+        self._ensure_collection()  # Lazy initialization
         self._client.delete(
             collection_name=self._settings.collection_name,
             points_selector=models.FilterSelector(

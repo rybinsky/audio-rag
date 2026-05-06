@@ -22,7 +22,6 @@ class AudioRAGMVPTest(unittest.TestCase):
     def test_ingest_and_ask_returns_citations(self) -> None:
         settings = load_settings()
         with tempfile.TemporaryDirectory() as tmp_dir:
-            store_path = Path(tmp_dir) / "chunks.jsonl"
             # Use Qdrant for vector storage, BGE-M3 for embeddings, and Reranker for better results
             # Note: Qdrant must be running for tests to work
             service = AudioRAGService(
@@ -47,7 +46,6 @@ class AudioRAGMVPTest(unittest.TestCase):
     def test_empty_index_returns_fallback_answer(self) -> None:
         settings = load_settings()
         with tempfile.TemporaryDirectory() as tmp_dir:
-            store_path = Path(tmp_dir) / "chunks.jsonl"
             # Use Qdrant for vector storage, BGE-M3 for embeddings, and Reranker for better results
             # Note: Qdrant must be running for tests to work
             service = AudioRAGService(

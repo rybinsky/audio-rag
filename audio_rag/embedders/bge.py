@@ -1,15 +1,15 @@
-"""BGE-M3 embedder using FlagEmbedding library."""
+"""BGE-M3 embedder using sentence-transformers library."""
 
 from typing import List
 
-from FlagEmbedding import BGEM3FlagEmbedder
+from sentence_transformers import SentenceTransformer
 
 from ..settings import BGESettings
 from .base import BaseEmbedder
 
 
 class BGEEmbedder(BaseEmbedder):
-    """BGE-M3 embedder using FlagEmbedding library.
+    """BGE-M3 embedder using sentence-transformers library.
 
     This is a local implementation of BGE-M3 embeddings that loads the model
     directly, suitable for use within Triton server models.
@@ -22,13 +22,11 @@ class BGEEmbedder(BaseEmbedder):
             settings: BGE settings containing model configuration
         """
         self._settings = settings
-        self._model = BGEM3FlagEmbedder(
-            model_name=settings.model_name,
+        self._model = SentenceTransformer(
+            settings.model_name,
             device=settings.device,
-            use_fp16=settings.device == "cuda",
         )
         self._max_length = settings.max_length
-        self._batch_size = settings.batch_size
 
     def encode(self, text: str) -> List[float]:
         """Encode a single text to embedding vector.
@@ -54,17 +52,15 @@ class BGEEmbedder(BaseEmbedder):
         if not texts:
             return []
 
-        # BGEM3FlagEmbedder returns a dict with 'dense_vecs' key
-        result = self._model.encode(
+        # Generate embeddings using sentence-transformers
+        embeddings = self._model.encode(
             texts,
-            batch_size=self._batch_size,
-            max_length=self._max_length,
+            convert_to_numpy=True,
+            normalize_embeddings=self._settings.normalize_embeddings,
         )
 
-        # Extract dense embeddings and convert to list format
-        embeddings = result["dense_vecs"].tolist()
-
-        return embeddings
+        # Convert to list format
+        return embeddings.tolist()
 
     def get_embedding_dimension(self) -> int:
         """Get the dimension of the embedding vectors.
