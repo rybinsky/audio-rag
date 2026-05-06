@@ -10,6 +10,9 @@ from audio_rag.config import load_settings
 from audio_rag.factories import create_embedder, create_reranker, create_store
 from audio_rag.service import AudioRAGService
 
+# Check if LLM is enabled for answer generation
+USE_LLM = os.environ.get("AUDIO_RAG_USE_LLM", "true").lower() == "true"
+
 
 class TritonPythonModel:
     def initialize(self, args):
@@ -103,9 +106,40 @@ class TritonPythonModel:
             # Perform the query
             answer = self._service.ask(resolved_query_text, top_k=top_k, use_reranker=True)
 
+            # Generate LLM answer if enabled and we have citations
+            final_answer = answer.answer
+            if USE_LLM and answer.citations:
+                try:
+                    # Prepare context from citations
+                    context_parts = []
+                    for i, citation in enumerate(answer.citations, start=1):
+                        context_parts.append(f"[{i}] {citation.snippet}")
+                    context = "\n".join(context_parts)
+
+                    # Call llm_qwen model
+                    llm_request = pb_utils.InferenceRequest(
+                        model_name="llm_qwen",
+                        requested_output_names=["OUTPUT_ANSWER"],
+                        inputs=[
+                            pb_utils.Tensor("INPUT_QUERY", np.array([resolved_query_text.encode(self._encoding)], dtype=object)),
+                            pb_utils.Tensor("INPUT_CONTEXT", np.array([context.encode(self._encoding)], dtype=object)),
+                            pb_utils.Tensor("INPUT_SYSTEM_PROMPT", np.array(["".encode(self._encoding)], dtype=object)),
+                            pb_utils.Tensor("INPUT_MAX_TOKENS", np.array([512], dtype=np.int32)),
+                        ]
+                    )
+                    llm_response = llm_request.exec()
+                    llm_answer = pb_utils.get_output_tensor_by_name(llm_response, "OUTPUT_ANSWER").as_numpy()[0]
+                    if isinstance(llm_answer, bytes):
+                        llm_answer = llm_answer.decode(self._encoding)
+                    final_answer = llm_answer.strip()
+                except Exception as e:
+                    # Fallback to template answer if LLM fails
+                    print(f"Warning: LLM generation failed: {e}", file=__import__('sys').stderr)
+                    pass
+
             # Convert to dict for JSON serialization
             result = {
-                "answer": answer.answer,
+                "answer": final_answer,
                 "resolved_query_text": answer.resolved_query_text,
                 "citations": [asdict(citation) for citation in answer.citations],
             }
