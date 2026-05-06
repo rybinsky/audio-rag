@@ -50,6 +50,12 @@ class StoreSettings:
 
 
 @dataclass
+class EmbedderSettings:
+    type: str = "bge"  # "bge" or "hashing"
+    embedding_dim: int = 1024  # for hashing embedder
+
+
+@dataclass
 class TritonHttpSettings:
     base_url: str = "http://localhost:8000"
     infer_endpoint_template: str = "/v2/models/{model_name}/infer"
@@ -122,6 +128,7 @@ class AppSettings:
     transcript: TranscriptSettings = field(default_factory=TranscriptSettings)
     metadata: MetadataSettings = field(default_factory=MetadataSettings)
     store: StoreSettings = field(default_factory=StoreSettings)
+    embedder: EmbedderSettings = field(default_factory=EmbedderSettings)
     triton_http: TritonHttpSettings = field(default_factory=TritonHttpSettings)
     triton_server: TritonServerSettings = field(default_factory=TritonServerSettings)
     asr: AsrSettings = field(default_factory=AsrSettings)

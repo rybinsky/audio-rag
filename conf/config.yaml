@@ -1,6 +1,10 @@
 defaults:
   - _self_
 
+embedder:
+  type: bge # "bge" or "hashing"
+  embedding_dim: 1024 # for hashing embedder
+
 chunking:
   chunk_words: 120
   overlap_words: 24

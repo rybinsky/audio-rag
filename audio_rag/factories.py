@@ -14,14 +14,15 @@ IS_TRITON_SERVER = os.environ.get("TRITON_SERVER", "false").lower() == "true"
 
 
 def create_embedder(settings: AppSettings, triton_url: str = "localhost:8000") -> BaseEmbedder:
-    """Create embedder based on environment.
+    """Create embedder based on configuration.
 
-    Inside Triton server: uses BGEEmbedder (direct implementation).
-    On client: uses TritonBGEEmbedder (calls Triton through HTTP API).
+    Supports multiple embedder types:
+    - hashing: HashingTextEmbedder (deterministic, for testing)
+    - bge: BGE-M3 embedder (local or Triton-based)
 
     Args:
         settings: Application settings
-        triton_url: Triton server URL (used only on client)
+        triton_url: Triton server URL (used only for BGE on client)
 
     Returns:
         BaseEmbedder instance
@@ -29,16 +30,31 @@ def create_embedder(settings: AppSettings, triton_url: str = "localhost:8000") -
     Raises:
         ImportError: If tritonclient is not available on client
     """
-    if IS_TRITON_SERVER:
-        # Inside Triton server: use direct implementation
-        return BGEEmbedder(settings.bge)
+    embedder_type = settings.embedder.type.lower().strip()
+
+    if embedder_type == "hashing":
+        # Hashing embedder for testing/deterministic embeddings
+        from .embedders.hashing import HashingTextEmbedder
+        return HashingTextEmbedder(embedding_dim=settings.embedder.embedding_dim)
+
+    elif embedder_type == "bge":
+        # BGE-M3 embedder (local or Triton-based)
+        if IS_TRITON_SERVER:
+            # Inside Triton server: use direct implementation
+            return BGEEmbedder(settings.bge)
+        else:
+            # On client: use Triton client
+            # Import here to avoid tritonclient dependency in Triton server
+            from .embedders.triton_bge import TritonBGEEmbedder
+            return TritonBGEEmbedder(
+                settings=settings.triton_embedder,
+                triton_url=triton_url,
+            )
+
     else:
-        # On client: use Triton client
-        # Import here to avoid tritonclient dependency in Triton server
-        from .embedders.triton_bge import TritonBGEEmbedder
-        return TritonBGEEmbedder(
-            settings=settings.triton_embedder,
-            triton_url=triton_url,
+        raise ValueError(
+            f"Unknown embedder type: {embedder_type}. "
+            f"Supported types: 'hashing', 'bge'"
         )
 
 

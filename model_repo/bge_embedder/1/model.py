@@ -1,4 +1,4 @@
-"""BGE-M3 embedder as Triton Python backend model."""
+"""Embedder as Triton Python backend model."""
 
 import json
 import os
@@ -6,20 +6,25 @@ import triton_python_backend_utils as pb_utils
 import numpy as np
 
 from audio_rag.config import load_settings
-from audio_rag.embedders import BGEEmbedder
+from audio_rag.factories import create_embedder
 
 
 class TritonPythonModel:
-    """Triton Python backend model for BGE-M3 text embeddings."""
+    """Triton Python backend model for text embeddings.
+
+    Supports multiple embedder types through factories:
+    - BGE-M3 embeddings (semantic understanding)
+    - Hashing embeddings (deterministic, for testing)
+    """
 
     def initialize(self, args):
-        """Initialize the BGE-M3 model.
+        """Initialize the embedder model.
 
         Args:
             args: Dictionary with model configuration
         """
         self._settings = load_settings()
-        self._embedder = BGEEmbedder(self._settings.bge)
+        self._embedder = create_embedder(self._settings)
         self._encoding = self._settings.transcript.encoding
 
         # Get model configuration
