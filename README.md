@@ -203,22 +203,54 @@ python3 main.py triton-ask "Вопрос" \
 | Модель | Тип | Назначение |
 |--------|-----|------------|
 | `asr_whisper` | Python backend | Распознавание речи (faster-whisper) |
+| `bge_embedder` | Python backend | Текстовые эмбеддинги (BGE-M3, 1024 dim) |
+| `reranker` | Python backend | Реранкинг результатов поиска |
 | `ingest_bls` | Python backend | Индексация подкастов |
 | `query_bls` | Python backend | Обработка запросов, retrieval |
 | `llm_qwen` | Python backend | Генерация ответов (Qwen2.5-1.5B) |
 
-## Текущие ограничения
+## Архитектура
 
-Проект является **прототипом** и содержит упрощения:
+Все модели работают **только через Triton Inference Server**:
 
-| Компонент | Текущее решение | План по ТЗ |
-|-----------|-----------------|------------|
-| ASR | faster-whisper (Python backend) | ONNX Whisper |
-| Эмбеддинги | Хеширование текста | BGE-M3 + CLAP |
-| Хранилище | JSONL файл | Qdrant |
-| Retrieval | Простой поиск по хешу | Vector search + Reranker |
-| LLM | ✅ Qwen2.5-1.5B-Instruct | Qwen с стримингом |
-| Orchestration | Python backend | Ensemble + BLS |
+### Пайплайн Ingest
+```
+Аудиофайл → ASR (Whisper) → Транскрипт → Chunking → BGE-M3 Embeddings → Qdrant
+```
+
+### Пайплайн Query
+```
+Вопрос (текст/аудио) 
+    → ASR (если аудио) 
+    → BGE-M3 Embedding 
+    → Vector Search (Qdrant) 
+    → Reranker 
+    → LLM (генерация ответа) 
+    → Ответ с цитатами
+```
+
+### Компоненты системы
+
+| Компонент | Технология | Описание |
+|-----------|------------|----------|
+| ASR | faster-whisper | Распознавание речи через Triton |
+| Эмбеддинги | BGE-M3 (1024 dim) | Текстовые эмбеддинги через Triton |
+| Хранилище | Qdrant | Векторная база данных |
+| Retrieval | Vector Search + Reranker | Поиск и реранкинг через Triton |
+| LLM | Qwen2.5-1.5B-Instruct | Генерация ответов через Triton |
+
+## Текущий статус
+
+Проект активно развивается. Реализовано:
+
+| Компонент | Статус | Описание |
+|-----------|--------|----------|
+| ASR | ✅ | faster-whisper через Triton |
+| Эмбеддинги | ✅ | BGE-M3 через Triton |
+| Хранилище | ✅ | Qdrant для векторного поиска |
+| Reranker | ✅ | BGE-reranker-v2-m3 через Triton |
+| LLM | ✅ | Qwen2.5-1.5B-Instruct через Triton |
+| Пайплайны | ✅ | Ingest и Query работают через Triton |
 
 ## Разработка
 
@@ -365,10 +397,10 @@ AUDIO_RAG_USE_LLM: "false"
 1. ✅ **LLM**: добавлен Qwen2.5-1.5B для генерации ответов
 2. 🔜 **Telegram Bot**: интерфейс для загрузки подкастов и вопросов
 
-**Этап 2: Качество поиска**
-3. **Эмбеддинги**: заменить хеширование на BGE-M3 для текста и CLAP для аудио
-4. **Хранилище**: миграция с JSONL на Qdrant для векторного поиска
-5. **Reranker**: добавить переупорядочивание результатов поиска
+**Этап 2: Качество поиска** ✅ ЗАВЕРШЕНО
+3. ✅ **Эмбеддинги**: BGE-M3 для текста через Triton
+4. ✅ **Хранилище**: Qdrant для векторного поиска
+5. ✅ **Reranker**: BGE-reranker-v2-m3 через Triton
 
 **Этап 3: Производительность**
 6. **Стриминг**: добавить стриминг токенов от LLM

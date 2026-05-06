@@ -5,10 +5,6 @@ chunking:
   chunk_words: 120
   overlap_words: 24
 
-embedding:
-  dimension: 256
-  token_pattern: "[A-Za-zА-Яа-яЁё0-9_]+"
-
 retrieval:
   default_top_k: 5
   max_preview_words: 24
@@ -30,6 +26,7 @@ metadata:
   ingest_mode_triton: triton_ingest_bls
 
 store:
+  type: qdrant # "jsonl" or "qdrant"
   app_dirname: .audio_rag
   filename: chunks.jsonl
 
@@ -58,6 +55,28 @@ asr:
 
 paths:
   workspace_dir: tmp
+
+qdrant:
+  host: localhost
+  port: 6333
+  collection_name: audio_rag_chunks
+  vector_size: 1024
+  distance: Cosine
+
+bge:
+  model_name: BAAI/bge-m3
+  device: cpu
+  max_length: 512
+  batch_size: 32
+
+reranker:
+  model_name: BAAI/bge-reranker-v2-m3
+  device: cpu
+  max_length: 512
+
+triton_embedder:
+  bge_model_name: bge_embedder
+  reranker_model_name: reranker
 
 hydra:
   run:

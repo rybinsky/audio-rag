@@ -6,19 +6,24 @@ import numpy as np
 import triton_python_backend_utils as pb_utils
 
 from audio_rag.config import load_settings
-from audio_rag.embeddings import HashingTextEmbedder
+from audio_rag.factories import create_embedder, create_reranker, create_store
 from audio_rag.service import AudioRAGService
-from audio_rag.store import JsonlChunkStore
 
 
 class TritonPythonModel:
     def initialize(self, args):
         del args
         self._settings = load_settings()
-        store_path = Path(os.environ.get("AUDIO_RAG_STORE_PATH", self._settings.triton_server.store_path))
+
+        # Use factories to create components based on configuration
+        store = create_store(self._settings)
+        embedder = create_embedder(self._settings, triton_url="localhost:8000")
+        reranker = create_reranker(self._settings)
+
         self._service = AudioRAGService(
-            store=JsonlChunkStore(store_path),
-            embedder=HashingTextEmbedder(self._settings.embedding),
+            store=store,
+            embedder=embedder,
+            reranker=reranker,
             settings=self._settings,
         )
         self._encoding = self._settings.transcript.encoding

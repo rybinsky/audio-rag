@@ -8,3 +8,10 @@ transformers>=4.40,<5.0
 torch>=2.2,<3.0
 accelerate>=0.29,<1.0
 sentencepiece>=0.2,<1.0
+
+# Vector database
+qdrant-client>=1.7,<2.0
+
+# Embeddings
+sentence-transformers>=2.2,<3.0
+FlagEmbed>=1.2,<2.0

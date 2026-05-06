@@ -8,16 +8,18 @@ from omegaconf import OmegaConf
 from .settings import (
     AppSettings,
     AsrSettings,
+    BGESettings,
     ChunkingSettings,
-    EmbeddingSettings,
     MetadataSettings,
     PathSettings,
+    QdrantSettings,
+    RerankerSettings,
     RetrievalSettings,
     StoreSettings,
     TranscriptSettings,
+    TritonEmbedderSettings,
     TritonHttpSettings,
     TritonServerSettings,
-    default_store_path,
 )
 
 
@@ -32,7 +34,6 @@ def load_settings() -> AppSettings:
 
     settings = AppSettings(
         chunking=ChunkingSettings(**config_dict["chunking"]),
-        embedding=EmbeddingSettings(**config_dict["embedding"]),
         retrieval=RetrievalSettings(**config_dict["retrieval"]),
         transcript=TranscriptSettings(**config_dict["transcript"]),
         metadata=MetadataSettings(**config_dict["metadata"]),
@@ -41,12 +42,10 @@ def load_settings() -> AppSettings:
         triton_server=TritonServerSettings(**config_dict["triton_server"]),
         asr=AsrSettings(**config_dict["asr"]),
         paths=PathSettings(**config_dict["paths"]),
+        qdrant=QdrantSettings(**config_dict["qdrant"]),
+        bge=BGESettings(**config_dict.get("bge", {})),
+        reranker=RerankerSettings(**config_dict.get("reranker", {})),
+        triton_embedder=TritonEmbedderSettings(**config_dict["triton_embedder"]),
     )
     settings.triton_http.host_project_root = str(project_root)
     return settings
-
-
-def resolve_store_path(settings: AppSettings, explicit_path: Optional[Path] = None) -> Path:
-    if explicit_path is not None:
-        return explicit_path.expanduser().resolve()
-    return default_store_path(settings)
