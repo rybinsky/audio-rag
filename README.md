@@ -1,3 +1,138 @@
+<div align="center">
+
+# 🎙️ Audio RAG
+
+**RAG System for Audio Content with Triton Inference Server**
+
+*Transcribe, index, and query audio content with AI-powered search*
+
+[![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Docker](https://img.shields.io/badge/docker-required-blue.svg)](https://www.docker.com/)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
+[Features](#-features) • [Quick Start](#-quick-start) • [Usage](#-usage) • [Architecture](#-architecture) • [Documentation](#-documentation)
+
+</div>
+
+---
+
+## 📋 Table of Contents
+
+- [Overview](#overview)
+- [Features](#-features)
+- [Demo](#-demo)
+- [Requirements](#-requirements)
+- [Quick Start](#-quick-start)
+- [Usage](#-usage)
+  - [Ingest Audio](#ingest-audio)
+  - [Ask Questions](#ask-questions)
+- [Architecture](#-architecture)
+- [Project Structure](#-project-structure)
+- [Configuration](#-configuration)
+- [Development](#-development)
+- [Troubleshooting](#-troubleshooting)
+- [Roadmap](#-roadmap)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Acknowledgments](#-acknowledgments)
+
+---
+
+## Overview
+
+**Audio RAG** is a production-ready system for indexing and querying audio content using Retrieval-Augmented Generation (RAG). Built on NVIDIA Triton Inference Server, it provides:
+
+- 🎯 **Speech-to-Text** - Whisper-powered transcription with timestamps
+- 🔍 **Semantic Search** - BGE-M3 multilingual embeddings with Qdrant vector DB
+- 🤖 **AI Answers** - LLM-generated responses with source citations
+- 🚀 **Production Ready** - Docker-based deployment with Triton inference server
+
+Perfect for podcasts, interviews, lectures, and any audio content you want to make searchable and queryable.
+
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🎤 **Audio Transcription** | Whisper ASR with word-level timestamps |
+| 🌍 **Multilingual** | Support for 99+ languages via BGE-M3 embeddings |
+| 📊 **Vector Search** | Qdrant-powered similarity search |
+| 🔄 **Reranking** | BGE-Reranker for improved relevance |
+| 💬 **LLM Answers** | Contextual answers with citations |
+| 🐳 **Docker Ready** | One-command deployment |
+| ⚡ **Triton Powered** | Scalable inference serving |
+| 🎛️ **Configurable** | Hydra-based configuration |
+
+---
+
+## Demo
+
+### Ingest a Podcast
+
+```bash
+python main.py triton-ingest-podcast \
+  --source my-podcast \
+  --audio-file ./podcast.mp3
+```
+
+```json
+{
+  "status": "success",
+  "chunks_count": 15,
+  "source_id": "my-podcast"
+}
+```
+
+### Ask Questions
+
+```bash
+python main.py triton-ask "What was discussed about exchange rates?"
+```
+
+```
+Resolved question: What was discussed about exchange rates?
+
+The current exchange rate as of May 5, 2022 is 75.50 rubles per US dollar.
+
+Citations:
+• my-podcast [0:18] score=0.847
+  "На сегодняшний день 5 мая 2022 года курс доллара составляет 
+   75 рублей и 50 копеек к российскому рублю."
+```
+
+---
+
+## Requirements
+
+### Minimum
+
+| Requirement | Version |
+|-------------|---------|
+| Python | 3.9+ |
+| Docker | 20.10+ |
+| Docker Compose | 2.0+ |
+| RAM | 4 GB |
+| Disk | 10 GB |
+| CPU | 2 cores |
+
+### Recommended
+
+| Requirement | Version |
+|-------------|---------|
+| RAM | 8 GB+ |
+| CPU | 4 cores+ |
+| GPU | NVIDIA with CUDA (optional) |
+| Disk | 20 GB SSD |
+
+---
+
+## 🚀 Quick Start
+
+### 1. Clone & Install
+
+```bash
 # Clone the repository
 git clone <repo-url>
 cd audio-rag
@@ -27,22 +162,23 @@ cp .env.example .env
 # Build and start all services (Qdrant + Triton)
 docker-compose up -d
 
-# Wait for models to load (takes 3-10 minutes on first run)
+# Wait for models to load (3-10 min on first run)
 # Models are downloaded from Hugging Face (~2-3GB total)
 docker-compose logs -f triton
 ```
 
 **Expected output when all models are ready:**
+
 ```
-"successfully loaded 'asr_whisper'"
-"successfully loaded 'bge_embedder'"
-"successfully loaded 'reranker'"
-"successfully loaded 'ingest_bls'"
-"successfully loaded 'query_bls'"
-"successfully loaded 'llm_qwen'"
+✓ successfully loaded 'asr_whisper'
+✓ successfully loaded 'bge_embedder'
+✓ successfully loaded 'reranker'
+✓ successfully loaded 'ingest_bls'
+✓ successfully loaded 'query_bls'
+✓ successfully loaded 'llm_qwen'
 ```
 
-Press `Ctrl+C` to stop following logs once models are loaded.
+Press `Ctrl+C` to stop following logs.
 
 ### 4. Verify Setup
 
@@ -54,21 +190,31 @@ curl http://localhost:8000/v2/health/ready
 curl http://localhost:6333/collections
 ```
 
-Both should return HTTP 200.
+Both should return HTTP 200. You're ready to go! 🎉
 
 ---
 
-## Usage Examples
+## Usage
 
-### Ingest a Podcast
+### Ingest Audio
+
+Import audio content into the vector database:
 
 ```bash
 python main.py triton-ingest-podcast \
-  --source my-podcast \
-  --audio-file ./path/to/podcast.mp3
+  --source <source-id> \
+  --audio-file ./path/to/audio.mp3
 ```
 
+**Parameters:**
+
+| Parameter | Description |
+|-----------|-------------|
+| `--source` | Unique identifier for the audio source |
+| `--audio-file` | Path to audio file (MP3, WAV, M4A, etc.) |
+
 **Output:**
+
 ```json
 {
   "status": "success",
@@ -82,34 +228,99 @@ python main.py triton-ingest-podcast \
 #### Text Question
 
 ```bash
-python main.py triton-ask "What was discussed in the podcast?"
+python main.py triton-ask "What topics were discussed?"
 ```
 
-#### Audio Question
+#### Audio Question (Voice Input)
 
 ```bash
 python main.py triton-ask-audio --question-audio-file ./question.mp3
 ```
 
-### Example Output
+**Response format:**
 
 ```
-Resolved question transcript: What is the current exchange rate?
+Resolved question transcript: [Transcribed question]
 
-The current exchange rate as of May 5, 2022 is 75.50 rubles per US dollar.
+[LLM-generated answer based on context]
 
 Citations:
-- my-podcast [0:18] score=0.847: На сегодняшний день 5 мая 2022 года курс доллара составляет 75 рублей и 50 копеек к российскому рублю.
+- source_id [start:end] score=0.XXX
+  "Relevant text snippet from audio..."
 ```
 
-**Components of the response:**
-- **Resolved question** - The actual question (transcribed if audio)
-- **Answer** - LLM-generated response based on context
-- **Citations** - Source audio segments with:
-  - Source ID
-  - Timestamp range
-  - Relevance score
-  - Text snippet
+---
+
+## Architecture
+
+### System Components
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        TRITON SERVER                            │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │ ASR Whisper │  │ BGE-M3 Emb. │  │   Reranker  │             │
+│  │   (Audio→   │  │  (Text→     │  │ (Relevance  │             │
+│  │    Text)    │  │  Vectors)   │  │  Scoring)   │             │
+│  └─────────────┘  └─────────────┘  └─────────────┘             │
+│                                                                 │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │ Ingest BLS  │  │  Query BLS  │  │  LLM Qwen   │             │
+│  │ (Ingestion  │  │  (Query     │  │ (Answer     │             │
+│  │  Pipeline)  │  │  Pipeline)  │  │ Generation) │             │
+│  └─────────────┘  └─────────────┘  └─────────────┘             │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │     Qdrant      │
+                    │  Vector Store   │
+                    └─────────────────┘
+```
+
+### Data Flow
+
+#### Ingestion Pipeline
+
+```
+Audio File ──▶ Whisper ASR ──▶ Transcript
+                                    │
+                                    ▼
+                              Chunking (120 words)
+                                    │
+                                    ▼
+                              BGE-M3 Embeddings
+                                    │
+                                    ▼
+                               Qdrant Store
+```
+
+#### Query Pipeline
+
+```
+Question ──▶ BGE-M3 Embed ──▶ Qdrant Search
+                                      │
+                                      ▼
+                                Reranker
+                                      │
+                                      ▼
+                              LLM Qwen
+                                      │
+                                      ▼
+                               Answer + Citations
+```
+
+### Models
+
+| Model | Type | Size | Purpose |
+|-------|------|------|---------|
+| Whisper | ASR | tiny/base/small/medium | Speech-to-text transcription |
+| BGE-M3 | Embedding | 568M | Multilingual text embeddings (1024 dim) |
+| BGE-Reranker-v2-m3 | Reranker | 560M | Cross-encoder relevance scoring |
+| Qwen2.5-0.5B-Instruct | LLM | 0.5B | Contextual answer generation |
 
 ---
 
@@ -123,38 +334,36 @@ audio-rag/
 │   │   ├── triton_bge.py  # BGE-M3 Triton client
 │   │   └── hashing.py     # Deterministic embedder (testing)
 │   ├── stores/            # Vector store implementations
-│   │   ├── qdrant.py      # Qdrant vector database
-│   │   └── jsonl.py       # JSONL file-based store
+│   │   ├── qdrant_store.py  # Qdrant vector database
+│   │   └── jsonl_store.py   # JSONL file-based store
 │   ├── service.py         # Core RAG business logic
-│   ├── cli.py            # Command-line interface
-│   ├── config.py         # Configuration loader
-│   ├── factories.py      # Component factories
-│   ├── triton_client.py  # Triton HTTP client
-│   └── utils/            # Utilities
-│       └── logging.py    # Logging configuration
+│   ├── cli.py             # Command-line interface
+│   ├── config.py          # Configuration loader
+│   ├── factories.py       # Component factories
+│   └── utils/             # Utilities
+│       └── logging.py     # Logging configuration
 │
 ├── model_repo/            # Triton model repository
-│   ├── asr_whisper/      # Whisper ASR model
-│   ├── bge_embedder/     # BGE-M3 embedding model
-│   ├── reranker/         # BGE reranker model
-│   ├── ingest_bls/       # Ingestion orchestration
-│   ├── query_bls/        # Query orchestration
-│   └── llm_qwen/         # LLM answer generation
+│   ├── asr_whisper/       # Whisper ASR model
+│   ├── bge_embedder/      # BGE-M3 embedding model
+│   ├── reranker/          # BGE reranker model
+│   ├── ingest_bls/        # Ingestion orchestration
+│   ├── query_bls/         # Query orchestration
+│   └── llm_qwen/          # LLM answer generation
 │
-├── conf/                  # Hydra configuration files
-│   └── config.yaml       # Main configuration
+├── conf/                  # Hydra configuration
+│   └── config.yaml        # Main configuration
 │
 ├── tests/                 # Test suite
-│   ├── test_mvp.py       # Integration tests
+│   ├── test_mvp.py        # Integration tests
 │   ├── test_triton_client.py  # Triton client tests
-│   ├── Подкаст.mp3       # Test podcast
-│   └── Вопрос.mp3        # Test question audio
+│   └── test_audio_workflow.py # Audio workflow tests
 │
-├── docker-compose.yml     # Docker services definition
-├── Dockerfile.triton      # Triton container build
-├── .env.example           # Environment variables template
-├── requirements-triton.txt # Python dependencies for Triton
-└── pyproject.toml         # Project metadata and dependencies
+├── docker-compose.yml     # Docker services
+├── Dockerfile.triton      # Triton container
+├── .env.example           # Environment template
+├── pyproject.toml         # Project metadata
+└── requirements-*.txt     # Dependencies
 ```
 
 ---
@@ -163,34 +372,21 @@ audio-rag/
 
 ### Environment Variables
 
-Key configuration via environment variables:
-
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `QDRANT_HOST` | Qdrant server hostname | `localhost` |
 | `QDRANT_PORT` | Qdrant server port | `6333` |
-| `TRITON_SERVER` | Set to `"true"` inside Triton container | `false` |
-| `AUDIO_RAG_ASR_MODEL_SIZE` | Whisper model size (`tiny`, `base`, `small`, `medium`) | `tiny` |
-| `AUDIO_RAG_ASR_DEVICE` | ASR device (`cpu`, `cuda`) | `cpu` |
+| `TRITON_SERVER` | Set to `"true"` inside Triton | `false` |
+| `AUDIO_RAG_ASR_MODEL_SIZE` | Whisper model (`tiny`/`base`/`small`/`medium`) | `tiny` |
+| `AUDIO_RAG_ASR_DEVICE` | ASR device (`cpu`/`cuda`) | `cpu` |
 | `AUDIO_RAG_LLM_MODEL` | LLM model name | `Qwen/Qwen2.5-0.5B-Instruct` |
-| `AUDIO_RAG_LLM_DEVICE` | LLM device (`cpu`, `cuda`) | `cpu` |
-| `AUDIO_RAG_LLM_MAX_TOKENS` | Max tokens for LLM response | `512` |
-| `AUDIO_RAG_USE_LLM` | Enable/disable LLM generation | `true` |
-
-### Docker Compose Configuration
-
-The `docker-compose.yml` automatically configures:
-
-- **Qdrant** - Vector database on port 6333
-- **Triton** - Inference server on port 8000 (HTTP), 8001 (gRPC), 8002 (metrics)
-- **Networking** - Containers communicate via service names
-- **Volumes** - Persistent storage for Qdrant data
-
-**Important:** Models are **not** cached locally. They are downloaded from Hugging Face on each container restart. This ensures you always have the latest versions.
+| `AUDIO_RAG_LLM_DEVICE` | LLM device (`cpu`/`cuda`) | `cpu` |
+| `AUDIO_RAG_LLM_MAX_TOKENS` | Max tokens for response | `512` |
+| `AUDIO_RAG_USE_LLM` | Enable/disable LLM | `true` |
 
 ### Hydra Configuration
 
-Advanced configuration via `conf/config.yaml`:
+Edit `conf/config.yaml` for advanced settings:
 
 ```yaml
 chunking:
@@ -203,264 +399,16 @@ retrieval:
 qdrant:
   collection_name: audio_rag_chunks
   vector_size: 1024       # BGE-M3 embedding dimension
-  
+
 bge:
   model_name: BAAI/bge-m3
   device: cpu
   max_length: 512
 ```
 
----
+### GPU Support
 
-## Architecture
-
-### System Components
-
-| Component | Model | Purpose |
-|-----------|-------|---------|
-| **ASR** | Whisper (tiny) | Speech-to-text transcription |
-| **Embedder** | BGE-M3 | Multilingual text embeddings (1024 dim) |
-| **Vector Store** | Qdrant | Similarity search and storage |
-| **Reranker** | BGE-Reranker-v2-m3 | Improve search relevance |
-| **LLM** | Qwen2.5-0.5B-Instruct | Generate contextual answers |
-
-### Triton Models
-
-Each model runs as a separate Triton service:
-
-| Model | Type | Description |
-|-------|------|-------------|
-| `asr_whisper` | Python backend | Faster-Whisper ASR |
-| `bge_embedder` | Python backend | Sentence-Transformers embeddings |
-| `reranker` | Python backend | Cross-encoder reranking |
-| `ingest_bls` | Python backend | Orchestrates ingestion pipeline |
-| `query_bls` | Python backend | Orchestrates query pipeline |
-| `llm_qwen` | Python backend | Transformers text generation |
-
-### Data Flow
-
-#### Ingestion Flow
-
-```
-┌─────────────┐     ┌──────────────┐     ┌──────────────┐
-│ Audio File  │────▶│ ASR Whisper  │────▶│  Transcript  │
-└─────────────┘     └──────────────┘     └──────────────┘
-                                                │
-                                                ▼
-┌─────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Qdrant    │◀────│ BGE Embedder │◀────│   Chunking   │
-└─────────────┘     └──────────────┘     └──────────────┘
-```
-
-#### Query Flow
-
-```
-┌─────────────┐     ┌──────────────┐     ┌──────────────┐
-│   Question  │────▶│ BGE Embedder │────▶│ Qdrant Search│
-└─────────────┘     └──────────────┘     └──────────────┘
-                                                │
-                                                ▼
-┌─────────────┐     ┌──────────────┐     ┌──────────────┐
-│    Answer   │◀────│   LLM Qwen   │◀────│   Reranker   │
-└─────────────┘     └──────────────┘     └──────────────┘
-```
-
----
-
-## Development
-
-### Running Tests
-
-```bash
-# Run all tests
-pytest tests/ -v
-
-# Run specific test file
-pytest tests/test_mvp.py -v
-
-# Run with coverage
-pytest tests/ --cov=audio_rag
-```
-
-**Note:** Tests require Qdrant to be running:
-```bash
-docker-compose up -d qdrant
-```
-
-### Code Quality
-
-```bash
-# Install development dependencies
-pip install -e ".[dev]"
-
-# Run linting
-flake8 audio_rag/ tests/
-
-# Run type checking
-mypy audio_rag/
-
-# Format code
-black audio_rag/ tests/
-```
-
-### Building Docker Image
-
-```bash
-# Build Triton image
-docker-compose build triton
-
-# Force rebuild without cache
-docker-compose build --no-cache triton
-```
-
-### Clean Up
-
-```bash
-# Stop all services
-docker-compose down
-
-# Remove volumes (clears all data)
-docker-compose down -v
-
-# Remove all containers and images
-docker-compose down --rmi all -v
-```
-
----
-
-## Troubleshooting
-
-### Models Not Loading
-
-**Symptom:** Triton logs show model loading errors or timeouts.
-
-**Solutions:**
-1. **Check disk space** - Models require ~3GB
-   ```bash
-   df -h
-   ```
-
-2. **Check internet connection** - Models download from Hugging Face
-   ```bash
-   curl -I https://huggingface.co
-   ```
-
-3. **Check logs for specific errors**
-   ```bash
-   docker-compose logs triton | grep -i error
-   ```
-
-4. **Restart with clean state**
-   ```bash
-   docker-compose down -v
-   docker-compose up -d
-   ```
-
-### Connection Refused to Qdrant
-
-**Symptom:** `ConnectionRefusedError: [Errno 111] Connection refused`
-
-**Solutions:**
-1. **Check Qdrant is running**
-   ```bash
-   docker-compose ps qdrant
-   ```
-
-2. **Verify Qdrant health**
-   ```bash
-   curl http://localhost:6333/collections
-   ```
-
-3. **Check environment variables**
-   - Inside Docker: `QDRANT_HOST=qdrant`
-   - Local client: `QDRANT_HOST=localhost`
-
-### LLM Not Generating Answers
-
-**Symptom:** Receiving template answers instead of LLM-generated responses.
-
-**Solutions:**
-1. **Verify LLM is enabled**
-   ```bash
-   # In docker-compose.yml
-   AUDIO_RAG_USE_LLM: "true"
-   ```
-
-2. **Check LLM model status**
-   ```bash
-   docker-compose logs triton | grep llm_qwen
-   ```
-
-3. **Check LLM is loaded**
-   ```bash
-   curl http://localhost:8000/v2/models/llm_qwen
-   ```
-
-4. **View LLM logs**
-   ```bash
-   docker-compose logs triton | grep "LLM request"
-   ```
-
-### Out of Memory
-
-**Symptom:** Container crashes or becomes unresponsive.
-
-**Solutions:**
-1. **Use smaller models**
-   ```yaml
-   # In docker-compose.yml
-   AUDIO_RAG_ASR_MODEL_SIZE: tiny
-   AUDIO_RAG_LLM_MODEL: Qwen/Qwen2.5-0.5B-Instruct
-   ```
-
-2. **Disable LLM**
-   ```yaml
-   AUDIO_RAG_USE_LLM: "false"
-   ```
-
-3. **Increase Docker memory** - Allocate at least 4GB to Docker
-
-### Slow Model Loading
-
-**Symptom:** Models take >15 minutes to load.
-
-**Solutions:**
-1. **First run downloads models** - Expected behavior, wait for completion
-2. **Slow internet** - Models download from Hugging Face (~3GB)
-3. **Check download progress**
-   ```bash
-   docker-compose logs triton | grep "Loading model"
-   ```
-
-### ModuleNotFoundError: packaging
-
-**Symptom:** Error when loading models in Triton.
-
-**Solution:** This is fixed in current version via `sitecustomize.py` in the Docker image.
-
----
-
-## System Requirements
-
-### Minimum Requirements
-
-- **Python:** 3.9 or higher
-- **Docker:** 20.10 or higher
-- **Docker Compose:** 2.0 or higher
-- **RAM:** 4GB minimum
-- **Disk:** 10GB free space
-- **CPU:** 2 cores
-
-### Recommended Requirements
-
-- **RAM:** 8GB or more
-- **CPU:** 4 cores or more
-- **GPU:** NVIDIA GPU with CUDA support (optional, speeds up inference)
-- **Disk:** 20GB SSD
-
-### GPU Support (Optional)
-
-For GPU acceleration, install NVIDIA Container Toolkit and modify `docker-compose.yml`:
+For GPU acceleration, install [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) and update `docker-compose.yml`:
 
 ```yaml
 services:
@@ -472,38 +420,145 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
+    environment:
+      AUDIO_RAG_ASR_DEVICE: cuda
+      AUDIO_RAG_LLM_DEVICE: cuda
 ```
 
 ---
 
-## Recent Updates
+## Development
 
-### 2025-01-08
+### Running Tests
 
-**Major Changes:**
-- ✅ **Removed local model caching** - Models now download from Hugging Face on each restart
-- ✅ **Fixed LLM response handling** - Properly validates LLM outputs
-- ✅ **Improved logging** - Consistent, production-ready logging across all models
-- ✅ **Removed unused code** - Cleaned up imports and print statements
+```bash
+# Start Qdrant (required for tests)
+docker-compose up -d qdrant
 
-**Bug Fixes:**
-- Fixed `'NoneType' object has no attribute 'as_numpy'` error in LLM
-- Fixed Qdrant connection with environment variables
-- Updated to qdrant-client 1.16+ API
+# Run all tests
+pytest tests/ -v
 
-**Improvements:**
-- Better error handling in query pipeline
-- Cleaner codebase with no unused imports
-- Production-ready logging format
+# Run specific test
+pytest tests/test_mvp.py -v
 
-### 2025-01-06
+# Run with coverage
+pytest tests/ --cov=audio_rag
+```
 
-- ✅ Fixed Qdrant connection with environment variables in config.yaml
-- ✅ Updated to qdrant-client 1.16+ API (query_points)
-- ✅ Implemented query_bls model execute method
-- ✅ Added .env.example with comprehensive documentation
-- ✅ Removed unused variables from tests
-- ✅ Added test audio files to .gitignore
+### Code Quality
+
+```bash
+# Install dev dependencies
+pip install -e ".[dev]"
+
+# Format code
+black audio_rag/ tests/
+
+# Lint
+flake8 audio_rag/ tests/
+
+# Type check
+mypy audio_rag/
+```
+
+### Docker Commands
+
+```bash
+# Build Triton image
+docker-compose build triton
+
+# Rebuild without cache
+docker-compose build --no-cache triton
+
+# View logs
+docker-compose logs -f triton
+
+# Stop all services
+docker-compose down
+
+# Remove volumes (clears all data)
+docker-compose down -v
+```
+
+---
+
+## Troubleshooting
+
+### Models Not Loading
+
+**Symptoms:** Triton logs show model loading errors or timeouts.
+
+**Solutions:**
+
+1. Check disk space (models require ~3GB):
+   ```bash
+   df -h
+   ```
+
+2. Check internet connection (models download from Hugging Face):
+   ```bash
+   curl -I https://huggingface.co
+   ```
+
+3. Check logs for errors:
+   ```bash
+   docker-compose logs triton | grep -i error
+   ```
+
+4. Restart with clean state:
+   ```bash
+   docker-compose down -v && docker-compose up -d
+   ```
+
+### Connection Refused to Qdrant
+
+**Symptoms:** `ConnectionRefusedError: [Errno 111] Connection refused`
+
+**Solutions:**
+
+1. Check Qdrant is running:
+   ```bash
+   docker-compose ps qdrant
+   ```
+
+2. Verify Qdrant health:
+   ```bash
+   curl http://localhost:6333/collections
+   ```
+
+3. Check environment:
+   - Inside Docker: `QDRANT_HOST=qdrant`
+   - Local client: `QDRANT_HOST=localhost`
+
+### Out of Memory
+
+**Symptoms:** Container crashes or becomes unresponsive.
+
+**Solutions:**
+
+1. Use smaller models:
+   ```yaml
+   AUDIO_RAG_ASR_MODEL_SIZE: tiny
+   AUDIO_RAG_LLM_MODEL: Qwen/Qwen2.5-0.5B-Instruct
+   ```
+
+2. Disable LLM:
+   ```yaml
+   AUDIO_RAG_USE_LLM: "false"
+   ```
+
+3. Increase Docker memory allocation (4GB+ recommended)
+
+### Slow Model Loading
+
+**Symptoms:** Models take >15 minutes to load.
+
+**This is normal on first run** - models download from Hugging Face (~3GB). Subsequent starts are faster.
+
+Check download progress:
+```bash
+docker-compose logs triton | grep "Loading"
+```
 
 ---
 
@@ -511,16 +566,16 @@ services:
 
 ### Short Term
 
-- [ ] Add support for multiple audio formats (WAV, M4A, FLAC)
-- [ ] Implement batch ingestion for multiple files
-- [ ] Add API endpoint for web integration
-- [ ] Improve error messages and user feedback
+- [ ] Multiple audio format support (WAV, M4A, FLAC)
+- [ ] Batch ingestion for multiple files
+- [ ] REST API endpoint
+- [ ] Improved error messages
 
 ### Medium Term
 
 - [ ] Telegram bot integration
 - [ ] Web UI for podcast management
-- [ ] Multi-language support (UI and responses)
+- [ ] Multi-language UI
 - [ ] RAG evaluation metrics
 
 ### Long Term
@@ -529,20 +584,20 @@ services:
 - [ ] Audio segment playback
 - [ ] Speaker diarization
 - [ ] Real-time transcription
-- [ ] Cloud deployment guides (AWS, GCP, Azure)
+- [ ] Cloud deployment guides
 
 ---
 
 ## Contributing
 
-We welcome contributions! Please follow these steps:
+Contributions are welcome! Please follow these steps:
 
 1. **Fork** the repository
 2. **Create** a feature branch (`git checkout -b feature/amazing-feature`)
 3. **Make** your changes
 4. **Run** tests (`pytest tests/ -v`)
-5. **Commit** your changes (`git commit -m 'Add amazing feature'`)
-6. **Push** to the branch (`git push origin feature/amazing-feature`)
+5. **Commit** changes (`git commit -m 'Add amazing feature'`)
+6. **Push** to branch (`git push origin feature/amazing-feature`)
 7. **Open** a Pull Request
 
 ### Code Style
@@ -573,9 +628,13 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- [Triton Inference Server](https://github.com/triton-inference-server/server) - NVIDIA
-- [Whisper](https://github.com/openai/whisper) - OpenAI
-- [BGE-M3](https://huggingface.co/BAAI/bge-m3) - BAAI
-- [Qwen2.5](https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct) - Qwen Team
+- [NVIDIA Triton Inference Server](https://github.com/triton-inference-server/server) - Scalable model serving
+- [OpenAI Whisper](https://github.com/openai/whisper) - Speech recognition
+- [BAAI BGE-M3](https://huggingface.co/BAAI/bge-m3) - Multilingual embeddings
+- [Qwen Team](https://huggingface.co/Qwen) - Qwen LLM models
 - [Qdrant](https://qdrant.tech/) - Vector database
 - [Hydra](https://hydra.cc/) - Configuration framework
+
+---
+
+<div align="center">
