@@ -26,7 +26,7 @@
 - [Quick Start](#-quick-start)
 - [Usage](#-usage)
   - [Ingest Audio](#ingest-audio)
-  - [Ask Questions](#ask-questions`.
+  - [Ask Questions](#ask-questions)
 - [Architecture](#-architecture)
 - [Project Structure](#-project-structure)
 - [Configuration](#-configuration)
