@@ -26,7 +26,7 @@
 - [Quick Start](#-quick-start)
 - [Usage](#-usage)
   - [Ingest Audio](#ingest-audio)
-  - [Ask Questions](#ask-questions)
+  - [Ask Questions](#ask-questions`.
 - [Architecture](#-architecture)
 - [Project Structure](#-project-structure)
 - [Configuration](#-configuration)
@@ -638,3 +638,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <div align="center">
+
+**[⬆ Back to Top](#️-audio-rag)**
+
+Made with ❤️ for the audio AI community
+
+</div>
