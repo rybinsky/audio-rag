@@ -3,9 +3,10 @@ import unittest
 from pathlib import Path
 
 from audio_rag.config import load_settings
-from audio_rag.embeddings import HashingTextEmbedder
+from audio_rag.embedders import BGEEmbedder
+from audio_rag.reranker import SearchReranker
 from audio_rag.service import AudioRAGService
-from audio_rag.store import JsonlChunkStore
+from audio_rag.stores import QdrantChunkStore
 
 
 PODCAST_AUDIO_FILENAME = "podcast.mp3"
@@ -25,7 +26,7 @@ class AudioRAGAudioWorkflowTest(unittest.TestCase):
         settings = load_settings()
         with tempfile.TemporaryDirectory() as tmp_dir:
             temp_path = Path(tmp_dir)
-            store_path = temp_path / "chunks.jsonl"
+
             podcast_audio_path = temp_path / PODCAST_AUDIO_FILENAME
             podcast_transcript_path = temp_path / PODCAST_TRANSCRIPT_FILENAME
             question_audio_path = temp_path / QUESTION_AUDIO_FILENAME
@@ -37,8 +38,9 @@ class AudioRAGAudioWorkflowTest(unittest.TestCase):
             question_transcript_path.write_text(QUESTION_TEXT, encoding="utf-8")
 
             service = AudioRAGService(
-                store=JsonlChunkStore(store_path),
-                embedder=HashingTextEmbedder(settings.embedding),
+                store=QdrantChunkStore(settings.qdrant),
+                embedder=BGEEmbedder(settings.bge),
+                reranker=SearchReranker(settings.reranker),
                 settings=settings,
             )
             chunks = service.ingest_podcast(

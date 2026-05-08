@@ -1,3 +1,4 @@
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
@@ -7,12 +8,6 @@ from typing import Optional
 class ChunkingSettings:
     chunk_words: int = 120
     overlap_words: int = 24
-
-
-@dataclass
-class EmbeddingSettings:
-    dimension: int = 256
-    token_pattern: str = r"[A-Za-zА-Яа-яЁё0-9_]+"
 
 
 @dataclass
@@ -46,8 +41,22 @@ class MetadataSettings:
 
 @dataclass
 class StoreSettings:
+    type: str = "qdrant"  # "jsonl" or "qdrant"
     app_dirname: str = ".audio_rag"
     filename: str = "chunks.jsonl"
+
+
+@dataclass
+class EmbedderSettings:
+    type: str = "bge"  # "bge" or "hashing"
+    embedding_dim: int = 1024  # for hashing embedder
+
+
+@dataclass
+class LoggingSettings:
+    level: str = "INFO"
+    format: str = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+    log_file: Optional[str] = None
 
 
 @dataclass
@@ -83,20 +92,57 @@ class AsrSettings:
 @dataclass
 class PathSettings:
     workspace_dir: str = "tmp"
+    cache_dir: str = ".model_cache"
+
+
+@dataclass
+class QdrantSettings:
+    host: str = field(default_factory=lambda: os.environ.get("QDRANT_HOST", "localhost"))
+    port: int = field(default_factory=lambda: int(os.environ.get("QDRANT_PORT", "6333")))
+    collection_name: str = "audio_rag_chunks"
+    vector_size: int = 1024  # BGE-M3 default
+    distance: str = "Cosine"
+
+
+@dataclass
+class BGESettings:
+    model_name: str = "BAAI/bge-m3"
+    device: str = "cpu"
+    normalize_embeddings: bool = True
+    max_length: int = 512
+    batch_size: int = 32
+
+
+@dataclass
+class RerankerSettings:
+    model_name: str = "BAAI/bge-reranker-v2-m3"
+    device: str = "cpu"
+    max_length: int = 512
+
+
+@dataclass
+class TritonEmbedderSettings:
+    bge_model_name: str = "bge_embedder"
+    reranker_model_name: str = "reranker"
 
 
 @dataclass
 class AppSettings:
     chunking: ChunkingSettings = field(default_factory=ChunkingSettings)
-    embedding: EmbeddingSettings = field(default_factory=EmbeddingSettings)
     retrieval: RetrievalSettings = field(default_factory=RetrievalSettings)
     transcript: TranscriptSettings = field(default_factory=TranscriptSettings)
     metadata: MetadataSettings = field(default_factory=MetadataSettings)
     store: StoreSettings = field(default_factory=StoreSettings)
+    embedder: EmbedderSettings = field(default_factory=EmbedderSettings)
+    logging: LoggingSettings = field(default_factory=LoggingSettings)
     triton_http: TritonHttpSettings = field(default_factory=TritonHttpSettings)
     triton_server: TritonServerSettings = field(default_factory=TritonServerSettings)
     asr: AsrSettings = field(default_factory=AsrSettings)
     paths: PathSettings = field(default_factory=PathSettings)
+    qdrant: QdrantSettings = field(default_factory=QdrantSettings)
+    bge: BGESettings = field(default_factory=BGESettings)
+    reranker: RerankerSettings = field(default_factory=RerankerSettings)
+    triton_embedder: TritonEmbedderSettings = field(default_factory=TritonEmbedderSettings)
 
 
 def default_data_dir(settings: AppSettings) -> Path:

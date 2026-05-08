@@ -3,9 +3,10 @@ import unittest
 from pathlib import Path
 
 from audio_rag.config import load_settings
-from audio_rag.embeddings import HashingTextEmbedder
+from audio_rag.embedders import BGEEmbedder
+from audio_rag.reranker import SearchReranker
 from audio_rag.service import AudioRAGService
-from audio_rag.store import JsonlChunkStore
+from audio_rag.stores import QdrantChunkStore
 
 
 SAMPLE_TRANSCRIPT = (
@@ -21,10 +22,12 @@ class AudioRAGMVPTest(unittest.TestCase):
     def test_ingest_and_ask_returns_citations(self) -> None:
         settings = load_settings()
         with tempfile.TemporaryDirectory() as tmp_dir:
-            store_path = Path(tmp_dir) / "chunks.jsonl"
+            # Use Qdrant for vector storage, BGE-M3 for embeddings, and Reranker for better results
+            # Note: Qdrant must be running for tests to work
             service = AudioRAGService(
-                store=JsonlChunkStore(store_path),
-                embedder=HashingTextEmbedder(settings.embedding),
+                store=QdrantChunkStore(settings.qdrant),
+                embedder=BGEEmbedder(settings.bge),
+                reranker=SearchReranker(settings.reranker),
                 settings=settings,
             )
 
@@ -43,10 +46,12 @@ class AudioRAGMVPTest(unittest.TestCase):
     def test_empty_index_returns_fallback_answer(self) -> None:
         settings = load_settings()
         with tempfile.TemporaryDirectory() as tmp_dir:
-            store_path = Path(tmp_dir) / "chunks.jsonl"
+            # Use Qdrant for vector storage, BGE-M3 for embeddings, and Reranker for better results
+            # Note: Qdrant must be running for tests to work
             service = AudioRAGService(
-                store=JsonlChunkStore(store_path),
-                embedder=HashingTextEmbedder(settings.embedding),
+                store=QdrantChunkStore(settings.qdrant),
+                embedder=BGEEmbedder(settings.bge),
+                reranker=SearchReranker(settings.reranker),
                 settings=settings,
             )
 

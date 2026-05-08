@@ -1,13 +1,13 @@
 defaults:
   - _self_
 
+embedder:
+  type: bge # "bge" or "hashing"
+  embedding_dim: 1024 # for hashing embedder
+
 chunking:
   chunk_words: 120
   overlap_words: 24
-
-embedding:
-  dimension: 256
-  token_pattern: "[A-Za-zА-Яа-яЁё0-9_]+"
 
 retrieval:
   default_top_k: 5
@@ -30,6 +30,7 @@ metadata:
   ingest_mode_triton: triton_ingest_bls
 
 store:
+  type: qdrant # "jsonl" or "qdrant"
   app_dirname: .audio_rag
   filename: chunks.jsonl
 
@@ -58,6 +59,34 @@ asr:
 
 paths:
   workspace_dir: tmp
+  cache_dir: .model_cache
+
+logging:
+  level: INFO # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+  log_file: null # Optional: path to log file
+
+qdrant:
+  host: ${oc.env:QDRANT_HOST,localhost}
+  port: ${oc.env:QDRANT_PORT,6333}
+  collection_name: audio_rag_chunks
+  vector_size: 1024
+  distance: Cosine
+
+bge:
+  model_name: BAAI/bge-m3
+  device: cpu
+  max_length: 512
+  batch_size: 32
+
+reranker:
+  model_name: BAAI/bge-reranker-v2-m3
+  device: cpu
+  max_length: 512
+
+triton_embedder:
+  bge_model_name: bge_embedder
+  reranker_model_name: reranker
 
 hydra:
   run:

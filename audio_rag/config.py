@@ -8,16 +8,20 @@ from omegaconf import OmegaConf
 from .settings import (
     AppSettings,
     AsrSettings,
+    BGESettings,
     ChunkingSettings,
-    EmbeddingSettings,
+    EmbedderSettings,
+    LoggingSettings,
     MetadataSettings,
     PathSettings,
+    QdrantSettings,
+    RerankerSettings,
     RetrievalSettings,
     StoreSettings,
     TranscriptSettings,
+    TritonEmbedderSettings,
     TritonHttpSettings,
     TritonServerSettings,
-    default_store_path,
 )
 
 
@@ -32,21 +36,29 @@ def load_settings() -> AppSettings:
 
     settings = AppSettings(
         chunking=ChunkingSettings(**config_dict["chunking"]),
-        embedding=EmbeddingSettings(**config_dict["embedding"]),
         retrieval=RetrievalSettings(**config_dict["retrieval"]),
         transcript=TranscriptSettings(**config_dict["transcript"]),
         metadata=MetadataSettings(**config_dict["metadata"]),
         store=StoreSettings(**config_dict["store"]),
+        embedder=EmbedderSettings(**config_dict.get("embedder", {})),
+        logging=LoggingSettings(**config_dict.get("logging", {})),
         triton_http=TritonHttpSettings(**config_dict["triton_http"]),
         triton_server=TritonServerSettings(**config_dict["triton_server"]),
         asr=AsrSettings(**config_dict["asr"]),
         paths=PathSettings(**config_dict["paths"]),
+        qdrant=QdrantSettings(**config_dict["qdrant"]),
+        bge=BGESettings(**config_dict.get("bge", {})),
+        reranker=RerankerSettings(**config_dict.get("reranker", {})),
+        triton_embedder=TritonEmbedderSettings(**config_dict["triton_embedder"]),
     )
     settings.triton_http.host_project_root = str(project_root)
+
+    # Initialize logging
+    from .utils.logging import setup_logging
+    setup_logging(
+        level=settings.logging.level,
+        log_format=settings.logging.format,
+        log_file=settings.logging.log_file,
+    )
+
     return settings
-
-
-def resolve_store_path(settings: AppSettings, explicit_path: Optional[Path] = None) -> Path:
-    if explicit_path is not None:
-        return explicit_path.expanduser().resolve()
-    return default_store_path(settings)

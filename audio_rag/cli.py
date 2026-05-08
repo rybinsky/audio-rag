@@ -3,10 +3,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-from .config import load_settings, resolve_store_path
-from .embeddings import HashingTextEmbedder
+from .config import load_settings
+from .factories import create_embedder, create_reranker, create_store
 from .service import AudioRAGService
-from .store import JsonlChunkStore
 from .triton_client import TritonHttpClient
 
 
@@ -61,7 +60,7 @@ def main() -> None:
     settings = load_settings()
     parser = build_parser(settings)
     args = parser.parse_args()
-    service = _build_service(settings, args.store)
+    service = _build_service(settings, args.store, triton_url=args.triton_url)
     triton_client = TritonHttpClient(settings)
 
     if args.command == "ingest-text":
@@ -142,11 +141,24 @@ def main() -> None:
     parser.error(f"Unsupported command: {args.command}")
 
 
-def _build_service(settings, explicit_store_path: Path = None) -> AudioRAGService:
-    store_path = resolve_store_path(settings, explicit_store_path)
+def _build_service(settings, explicit_store_path: Path = None, triton_url: str = "localhost:8000") -> AudioRAGService:
+    """Build AudioRAGService using factories.
+
+    Args:
+        settings: Application settings
+        explicit_store_path: Optional explicit path for JSONL store
+        triton_url: Triton server URL for TritonBGEEmbedder
+
+    Returns:
+        AudioRAGService instance with configured components
+    """
+    store = create_store(settings, explicit_store_path)
+    embedder = create_embedder(settings, triton_url=triton_url)
+    reranker = create_reranker(settings, triton_url=triton_url)
     return AudioRAGService(
-        store=JsonlChunkStore(store_path),
-        embedder=HashingTextEmbedder(settings.embedding),
+        store=store,
+        embedder=embedder,
+        reranker=reranker,
         settings=settings,
     )
 

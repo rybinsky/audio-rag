@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from typing import Optional
 
 import numpy as np
@@ -15,6 +16,14 @@ class TritonPythonModel:
         """Initialize the LLM model and tokenizer."""
         del args
 
+        # Load settings to get cache_dir
+        from audio_rag.config import load_settings
+        from audio_rag.utils.logging import get_logger, log_model_loading, log_model_loaded
+        settings = load_settings()
+
+        # Setup logger
+        self._logger = get_logger(__name__)
+
         # Model configuration
         model_name = os.environ.get(
             "AUDIO_RAG_LLM_MODEL",
@@ -27,13 +36,19 @@ class TritonPythonModel:
         self._max_new_tokens = max_new_tokens
         self._encoding = "utf-8"
 
+        # Log model loading
+        log_model_loading(self._logger, model_name, None)
+        start_time = time.time()
+
         # Load tokenizer
+        self._logger.info(f"Loading tokenizer for '{model_name}'...")
         self._tokenizer = AutoTokenizer.from_pretrained(
             model_name,
             trust_remote_code=True
         )
 
         # Load model
+        self._logger.info(f"Loading model '{model_name}' on device '{device}'...")
         self._model = AutoModelForCausalLM.from_pretrained(
             model_name,
             torch_dtype=torch.float32,
@@ -41,6 +56,10 @@ class TritonPythonModel:
             trust_remote_code=True
         )
         self._model.eval()
+
+        # Log successful loading
+        load_time = time.time() - start_time
+        log_model_loaded(self._logger, model_name, load_time)
 
         # System prompt for RAG
         self._system_prompt = (
@@ -53,29 +72,48 @@ class TritonPythonModel:
         """Execute LLM inference on batch of requests."""
         responses = []
 
-        for request in requests:
-            # Decode inputs
-            query = self._decode_input(request, "INPUT_QUERY")
-            context = self._decode_input(request, "INPUT_CONTEXT")
-            system_prompt = self._decode_input_optional(request, "INPUT_SYSTEM_PROMPT")
-            max_tokens = self._decode_int_optional(request, "INPUT_MAX_TOKENS")
+        for idx, request in enumerate(requests):
+            request_id = f"llm-{idx}-{time.time()}"
 
-            # Use provided system prompt or default
-            sys_prompt = system_prompt if system_prompt else self._system_prompt
-            max_new = max_tokens if max_tokens and max_tokens > 0 else self._max_new_tokens
+            try:
+                # Decode inputs
+                query = self._decode_input(request, "INPUT_QUERY")
+                context = self._decode_input(request, "INPUT_CONTEXT")
+                system_prompt = self._decode_input_optional(request, "INPUT_SYSTEM_PROMPT")
+                max_tokens = self._decode_int_optional(request, "INPUT_MAX_TOKENS")
 
-            # Build prompt
-            prompt = self._build_prompt(query, context, sys_prompt)
+                # Log incoming request
+                self._logger.info(f"[{request_id}] LLM request - Query: {query[:100]}...")
 
-            # Generate answer
-            answer = self._generate(prompt, max_new)
+                # Use provided system prompt or default
+                sys_prompt = system_prompt if system_prompt else self._system_prompt
+                max_new = max_tokens if max_tokens and max_tokens > 0 else self._max_new_tokens
 
-            # Build response
-            output_tensor = pb_utils.Tensor(
-                "OUTPUT_ANSWER",
-                np.array([answer.encode(self._encoding)], dtype=object)
-            )
-            responses.append(pb_utils.InferenceResponse(output_tensors=[output_tensor]))
+                # Build prompt and generate answer
+                prompt = self._build_prompt(query, context, sys_prompt)
+                start_time = time.time()
+                answer = self._generate(prompt, max_new)
+                gen_time = time.time() - start_time
+
+                # Log response
+                self._logger.info(f"[{request_id}] LLM response in {gen_time:.2f}s - Answer: {answer[:100]}...")
+
+                # Build response
+                output_tensor = pb_utils.Tensor(
+                    "OUTPUT_ANSWER",
+                    np.array([answer.encode(self._encoding)], dtype=object)
+                )
+                responses.append(pb_utils.InferenceResponse(output_tensors=[output_tensor]))
+            except Exception as e:
+                # Log error and create error response
+                self._logger.error(f"[{request_id}] Error during LLM execution: {e}", exc_info=True)
+                # Still need to return a response
+                error_msg = f"Error: {str(e)}"
+                output_tensor = pb_utils.Tensor(
+                    "OUTPUT_ANSWER",
+                    np.array([error_msg.encode(self._encoding)], dtype=object)
+                )
+                responses.append(pb_utils.InferenceResponse(output_tensors=[output_tensor]))
 
         return responses
 
