@@ -11,6 +11,7 @@ from .settings import (
     BGESettings,
     ChunkingSettings,
     EmbedderSettings,
+    LoggingSettings,
     MetadataSettings,
     PathSettings,
     QdrantSettings,
@@ -40,6 +41,7 @@ def load_settings() -> AppSettings:
         metadata=MetadataSettings(**config_dict["metadata"]),
         store=StoreSettings(**config_dict["store"]),
         embedder=EmbedderSettings(**config_dict.get("embedder", {})),
+        logging=LoggingSettings(**config_dict.get("logging", {})),
         triton_http=TritonHttpSettings(**config_dict["triton_http"]),
         triton_server=TritonServerSettings(**config_dict["triton_server"]),
         asr=AsrSettings(**config_dict["asr"]),
@@ -50,4 +52,13 @@ def load_settings() -> AppSettings:
         triton_embedder=TritonEmbedderSettings(**config_dict["triton_embedder"]),
     )
     settings.triton_http.host_project_root = str(project_root)
+
+    # Initialize logging
+    from .utils.logging import setup_logging
+    setup_logging(
+        level=settings.logging.level,
+        log_format=settings.logging.format,
+        log_file=settings.logging.log_file,
+    )
+
     return settings

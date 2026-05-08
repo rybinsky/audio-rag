@@ -2,11 +2,13 @@
 
 import json
 import os
+import time
 import triton_python_backend_utils as pb_utils
 import numpy as np
 
 from audio_rag.config import load_settings
 from audio_rag.factories import create_embedder
+from audio_rag.utils.logging import get_logger
 
 
 class TritonPythonModel:
@@ -24,8 +26,11 @@ class TritonPythonModel:
             args: Dictionary with model configuration
         """
         self._settings = load_settings()
-        self._embedder = create_embedder(self._settings)
+        self._embedder = create_embedder(self._settings, model_name="bge_embedder")
         self._encoding = self._settings.transcript.encoding
+
+        # Setup logger
+        self._logger = get_logger(__name__)
 
         # Get model configuration
         self._model_config = json.loads(args["model_config"])
@@ -57,7 +62,9 @@ class TritonPythonModel:
         """
         responses = []
 
-        for request in requests:
+        for idx, request in enumerate(requests):
+            request_id = f"embed-{idx}-{time.time()}"
+
             # Get input text(s)
             input_tensor = pb_utils.get_input_tensor_by_name(request, "INPUT_TEXT")
             texts = input_tensor.as_numpy()
@@ -70,8 +77,16 @@ class TritonPythonModel:
                 else:
                     decoded_texts.append(str(text_bytes))
 
-            # Generate embeddings
+            # Log incoming request
+            self._logger.info(f"[{request_id}] Embedding request - {len(decoded_texts)} texts")
+
+            # Generate embeddings with timing
+            start_time = time.time()
             embeddings = self._embedder.encode_batch(decoded_texts)
+            encode_time = time.time() - start_time
+
+            # Log response
+            self._logger.info(f"[{request_id}] Embedding response in {encode_time:.3f}s - Shape: {len(embeddings)}x{len(embeddings[0]) if embeddings else 0}")
 
             # Convert to numpy array
             embeddings_array = np.array(embeddings, dtype=np.float32)

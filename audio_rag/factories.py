@@ -2,7 +2,6 @@
 
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from .embedders import BaseEmbedder, BGEEmbedder
 from .settings import AppSettings
@@ -13,7 +12,7 @@ from .stores import BaseStore, JsonlChunkStore, QdrantChunkStore
 IS_TRITON_SERVER = os.environ.get("TRITON_SERVER", "false").lower() == "true"
 
 
-def create_embedder(settings: AppSettings, triton_url: str = "localhost:8000") -> BaseEmbedder:
+def create_embedder(settings: AppSettings, triton_url: str = "localhost:8000", model_name: str = None) -> BaseEmbedder:
     """Create embedder based on configuration.
 
     Supports multiple embedder types:
@@ -23,6 +22,7 @@ def create_embedder(settings: AppSettings, triton_url: str = "localhost:8000") -
     Args:
         settings: Application settings
         triton_url: Triton server URL (used only for BGE on client)
+        model_name: Model name for cache separation (optional)
 
     Returns:
         BaseEmbedder instance
@@ -94,7 +94,7 @@ def create_store(settings: AppSettings, explicit_path: Path = None) -> BaseStore
         )
 
 
-def create_reranker(settings: AppSettings, triton_url: str = "localhost:8000"):
+def create_reranker(settings: AppSettings, triton_url: str = "localhost:8000", model_name: str = None):
     """Create reranker based on environment.
 
     Inside Triton server: uses SearchReranker (direct implementation).
@@ -103,6 +103,7 @@ def create_reranker(settings: AppSettings, triton_url: str = "localhost:8000"):
     Args:
         settings: Application settings
         triton_url: Triton server URL (used only on client)
+        model_name: Model name for cache separation (optional)
 
     Returns:
         Reranker instance

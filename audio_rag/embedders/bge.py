@@ -1,10 +1,13 @@
 """BGE-M3 embedder using sentence-transformers library."""
 
+import time
+from pathlib import Path
 from typing import List
 
 from sentence_transformers import SentenceTransformer
 
 from ..settings import BGESettings
+from ..utils.logging import get_logger, log_model_loading, log_model_loaded
 from .base import BaseEmbedder
 
 
@@ -22,11 +25,21 @@ class BGEEmbedder(BaseEmbedder):
             settings: BGE settings containing model configuration
         """
         self._settings = settings
+        self._logger = get_logger(__name__)
+
+        # Log model loading
+        log_model_loading(self._logger, settings.model_name, None)
+        start_time = time.time()
+
         self._model = SentenceTransformer(
             settings.model_name,
             device=settings.device,
         )
         self._max_length = settings.max_length
+
+        # Log successful loading
+        load_time = time.time() - start_time
+        log_model_loaded(self._logger, settings.model_name, load_time)
 
     def encode(self, text: str) -> List[float]:
         """Encode a single text to embedding vector.
@@ -52,12 +65,21 @@ class BGEEmbedder(BaseEmbedder):
         if not texts:
             return []
 
+        # Log encoding request
+        self._logger.debug(f"Encoding {len(texts)} texts with {self._settings.model_name}")
+
+        start_time = time.time()
+
         # Generate embeddings using sentence-transformers
         embeddings = self._model.encode(
             texts,
             convert_to_numpy=True,
             normalize_embeddings=self._settings.normalize_embeddings,
         )
+
+        # Log encoding time
+        encode_time = time.time() - start_time
+        self._logger.debug(f"Encoded {len(texts)} texts in {encode_time:.3f}s")
 
         # Convert to list format
         return embeddings.tolist()

@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from pathlib import Path
 
 import numpy as np
@@ -8,6 +9,7 @@ import triton_python_backend_utils as pb_utils
 from audio_rag.config import load_settings
 from audio_rag.factories import create_embedder, create_reranker, create_store
 from audio_rag.service import AudioRAGService
+from audio_rag.utils.logging import get_logger
 
 
 class TritonPythonModel:
@@ -15,11 +17,15 @@ class TritonPythonModel:
         del args
         self._settings = load_settings()
 
+        # Setup logger
+        self._logger = get_logger(__name__)
+        self._logger.info("Initializing ingest_bls model...")
+
         # Use factories - they will automatically choose the right implementation
         # based on TRITON_SERVER environment variable
         store = create_store(self._settings)
-        embedder = create_embedder(self._settings)
-        reranker = create_reranker(self._settings)
+        embedder = create_embedder(self._settings, model_name="ingest_bls")
+        reranker = create_reranker(self._settings, model_name="ingest_bls")
 
         self._service = AudioRAGService(
             store=store,
@@ -30,10 +36,14 @@ class TritonPythonModel:
         self._encoding = self._settings.transcript.encoding
         self._asr_model_name = self._settings.triton_http.model_asr_name
 
+        self._logger.info("Ingest_bls model initialized successfully")
+
     def execute(self, requests):
         responses = []
 
-        for request in requests:
+        for idx, request in enumerate(requests):
+            request_id = f"ingest-{idx}-{time.time()}"
+
             # Get input audio path
             audio_path_tensor = pb_utils.get_input_tensor_by_name(request, "INPUT_AUDIO_PATH")
             audio_path = audio_path_tensor.as_numpy()[0]
@@ -45,6 +55,9 @@ class TritonPythonModel:
             source_id = source_id_tensor.as_numpy()[0]
             if isinstance(source_id, bytes):
                 source_id = source_id.decode(self._encoding)
+
+            # Log incoming request
+            self._logger.info(f"[{request_id}] Ingest request - Audio: {Path(audio_path).name}, Source: {source_id}")
 
             # Get optional transcript path
             transcript_path = None
@@ -86,11 +99,13 @@ class TritonPythonModel:
                 transcript = transcript.decode(self._encoding)
 
             # Ingest the transcript
+            start_time = time.time()
             chunks = self._service.ingest_transcript(
                 source_id=source_id,
                 transcript=transcript,
                 metadata=metadata,
             )
+            ingest_time = time.time() - start_time
 
             # Create output
             result = {
@@ -98,6 +113,9 @@ class TritonPythonModel:
                 "chunks_count": len(chunks),
                 "source_id": source_id,
             }
+
+            # Log response
+            self._logger.info(f"[{request_id}] Ingest response in {ingest_time:.2f}s - Chunks: {len(chunks)}")
 
             output_tensor = pb_utils.Tensor("OUTPUT_RESULT", np.array([json.dumps(result, ensure_ascii=False).encode(self._encoding)], dtype=object))
             response = pb_utils.InferenceResponse(output_tensors=[output_tensor])

@@ -1,5 +1,6 @@
 import json
 import os
+import time
 from pathlib import Path
 from dataclasses import asdict
 
@@ -9,6 +10,7 @@ import triton_python_backend_utils as pb_utils
 from audio_rag.config import load_settings
 from audio_rag.factories import create_embedder, create_reranker, create_store
 from audio_rag.service import AudioRAGService
+from audio_rag.utils.logging import get_logger
 
 # Check if LLM is enabled for answer generation
 USE_LLM = os.environ.get("AUDIO_RAG_USE_LLM", "true").lower() == "true"
@@ -19,10 +21,14 @@ class TritonPythonModel:
         del args
         self._settings = load_settings()
 
+        # Setup logger
+        self._logger = get_logger(__name__)
+        self._logger.info("Initializing query_bls model...")
+
         # Use factories to create components (will use direct implementations inside Triton server)
         store = create_store(self._settings)
-        embedder = create_embedder(self._settings)
-        reranker = create_reranker(self._settings)
+        embedder = create_embedder(self._settings, model_name="query_bls")
+        reranker = create_reranker(self._settings, model_name="query_bls")
 
         self._service = AudioRAGService(
             store=store,
@@ -33,10 +39,13 @@ class TritonPythonModel:
         self._encoding = self._settings.transcript.encoding
         self._asr_model_name = self._settings.triton_http.model_asr_name
 
+        self._logger.info("Query_bls model initialized successfully")
+
     def execute(self, requests):
         responses = []
 
-        for request in requests:
+        for idx, request in enumerate(requests):
+            request_id = f"query-{idx}-{time.time()}"
             # Get query text (may be empty if using audio)
             query_text = ""
             try:
@@ -47,6 +56,12 @@ class TritonPythonModel:
                         query_text = query_text_bytes.decode(self._encoding)
             except Exception:
                 pass
+
+            # Log incoming request
+            if query_text:
+                self._logger.info(f"[{request_id}] Query request - Text: {query_text[:100]}...")
+            else:
+                self._logger.info(f"[{request_id}] Query request - Audio mode")
 
             # Get question audio path (may be empty)
             question_audio_path = ""
@@ -103,8 +118,13 @@ class TritonPythonModel:
                     transcript = transcript.decode(self._encoding)
                 resolved_query_text = transcript.strip()
 
-            # Perform the query
+            # Perform the query with timing
+            start_time = time.time()
             answer = self._service.ask(resolved_query_text, top_k=top_k, use_reranker=True)
+            query_time = time.time() - start_time
+
+            # Log query response
+            self._logger.info(f"[{request_id}] Query response in {query_time:.2f}s - Citations: {len(answer.citations)}")
 
             # Generate LLM answer if enabled and we have citations
             final_answer = answer.answer
@@ -127,15 +147,25 @@ class TritonPythonModel:
                             pb_utils.Tensor("INPUT_MAX_TOKENS", np.array([512], dtype=np.int32)),
                         ]
                     )
+
                     llm_response = llm_request.exec()
-                    llm_answer = pb_utils.get_output_tensor_by_name(llm_response, "OUTPUT_ANSWER").as_numpy()[0]
-                    if isinstance(llm_answer, bytes):
-                        llm_answer = llm_answer.decode(self._encoding)
-                    final_answer = llm_answer.strip()
+
+                    # Check if LLM response is valid
+                    if llm_response is None:
+                        self._logger.warning(f"[{request_id}] LLM response is None, falling back to template answer")
+                    else:
+                        # Check if output tensor exists
+                        output_tensor = pb_utils.get_output_tensor_by_name(llm_response, "OUTPUT_ANSWER")
+                        if output_tensor is None:
+                            self._logger.warning(f"[{request_id}] LLM response missing OUTPUT_ANSWER tensor, falling back to template answer")
+                        else:
+                            llm_answer = output_tensor.as_numpy()[0]
+                            if isinstance(llm_answer, bytes):
+                                llm_answer = llm_answer.decode(self._encoding)
+                            final_answer = llm_answer.strip()
                 except Exception as e:
                     # Fallback to template answer if LLM fails
-                    print(f"Warning: LLM generation failed: {e}", file=__import__('sys').stderr)
-                    pass
+                    self._logger.warning(f"LLM generation failed: {e}")
 
             # Convert to dict for JSON serialization
             result = {

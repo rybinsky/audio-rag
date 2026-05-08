@@ -59,6 +59,12 @@ asr:
 
 paths:
   workspace_dir: tmp
+  cache_dir: .model_cache
+
+logging:
+  level: INFO # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+  log_file: null # Optional: path to log file
 
 qdrant:
   host: ${oc.env:QDRANT_HOST,localhost}

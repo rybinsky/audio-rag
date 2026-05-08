@@ -13,6 +13,7 @@ class RerankerProtocol(Protocol):
     """Protocol for reranker objects."""
     def rerank(self, query: str, results: List[SearchResult], top_k: Optional[int] = None) -> List[SearchResult]:
         ...
+
 from .settings import AppSettings
 from .stores import BaseStore
 

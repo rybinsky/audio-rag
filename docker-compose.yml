@@ -47,8 +47,6 @@ services:
       - .:/workspace
       - ./model_repo:/models
       - ./tmp:/data
-      - triton_cache:/root/.cache
 
 volumes:
-  triton_cache:
   qdrant_storage:

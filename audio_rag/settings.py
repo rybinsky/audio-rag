@@ -10,9 +10,6 @@ class ChunkingSettings:
     overlap_words: int = 24
 
 
-
-
-
 @dataclass
 class RetrievalSettings:
     default_top_k: int = 5
@@ -56,6 +53,13 @@ class EmbedderSettings:
 
 
 @dataclass
+class LoggingSettings:
+    level: str = "INFO"
+    format: str = "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+    log_file: Optional[str] = None
+
+
+@dataclass
 class TritonHttpSettings:
     base_url: str = "http://localhost:8000"
     infer_endpoint_template: str = "/v2/models/{model_name}/infer"
@@ -88,6 +92,7 @@ class AsrSettings:
 @dataclass
 class PathSettings:
     workspace_dir: str = "tmp"
+    cache_dir: str = ".model_cache"
 
 
 @dataclass
@@ -129,6 +134,7 @@ class AppSettings:
     metadata: MetadataSettings = field(default_factory=MetadataSettings)
     store: StoreSettings = field(default_factory=StoreSettings)
     embedder: EmbedderSettings = field(default_factory=EmbedderSettings)
+    logging: LoggingSettings = field(default_factory=LoggingSettings)
     triton_http: TritonHttpSettings = field(default_factory=TritonHttpSettings)
     triton_server: TritonServerSettings = field(default_factory=TritonServerSettings)
     asr: AsrSettings = field(default_factory=AsrSettings)

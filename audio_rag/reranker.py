@@ -1,10 +1,12 @@
 """Search reranker using sentence-transformers library."""
 
+import time
 from typing import List, Optional, Tuple
 
 from sentence_transformers import CrossEncoder
 
 from .settings import RerankerSettings
+from .utils.logging import get_logger, log_model_loading, log_model_loaded
 
 
 class SearchReranker:
@@ -21,11 +23,21 @@ class SearchReranker:
             settings: Reranker settings containing model configuration
         """
         self._settings = settings
+        self._logger = get_logger(__name__)
+
+        # Log model loading
+        log_model_loading(self._logger, settings.model_name, None)
+        start_time = time.time()
+
         self._reranker = CrossEncoder(
             settings.model_name,
             max_length=settings.max_length,
             device=settings.device,
         )
+
+        # Log successful loading
+        load_time = time.time() - start_time
+        log_model_loaded(self._logger, settings.model_name, load_time)
 
     def rerank_texts(
         self,
@@ -46,11 +58,20 @@ class SearchReranker:
         if not texts:
             return []
 
+        # Log reranking request
+        self._logger.debug(f"Reranking {len(texts)} texts for query: {query[:50]}...")
+
+        start_time = time.time()
+
         # Create query-text pairs for reranker
         pairs = [[query, text] for text in texts]
 
         # Get scores from reranker
         scores = self._reranker.predict(pairs)
+
+        # Log reranking time
+        rerank_time = time.time() - start_time
+        self._logger.debug(f"Reranked {len(texts)} texts in {rerank_time:.3f}s")
 
         # Handle single text case (predict returns float instead of list)
         if isinstance(scores, float):

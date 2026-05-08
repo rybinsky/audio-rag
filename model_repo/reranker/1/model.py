@@ -1,11 +1,13 @@
 """Reranker as Triton Python backend model."""
 
 import json
+import time
 import triton_python_backend_utils as pb_utils
 import numpy as np
 
 from audio_rag.config import load_settings
 from audio_rag.reranker import SearchReranker
+from audio_rag.utils.logging import get_logger
 
 
 class TritonPythonModel:
@@ -20,6 +22,9 @@ class TritonPythonModel:
         self._settings = load_settings()
         self._reranker = SearchReranker(self._settings.reranker)
         self._encoding = self._settings.transcript.encoding
+
+        # Setup logger
+        self._logger = get_logger(__name__)
 
         # Get model configuration
         self._model_config = json.loads(args["model_config"])
@@ -70,7 +75,8 @@ class TritonPythonModel:
         """
         responses = []
 
-        for request in requests:
+        for idx, request in enumerate(requests):
+            request_id = f"rerank-{idx}-{time.time()}"
             # Get input query
             query_tensor = pb_utils.get_input_tensor_by_name(request, "INPUT_QUERY")
             query = query_tensor.as_numpy()[0]
@@ -89,6 +95,9 @@ class TritonPythonModel:
                 else:
                     decoded_texts.append(str(text_bytes))
 
+            # Log incoming request
+            self._logger.info(f"[{request_id}] Reranking request - Query: {query[:100]}... - {len(decoded_texts)} texts")
+
             # Get top_k (optional)
             top_k = None
             try:
@@ -100,16 +109,21 @@ class TritonPythonModel:
                 # If top_k is not provided, use default from settings
                 pass
 
-            # Perform reranking
+            # Perform reranking with timing
+            start_time = time.time()
             reranked_results = self._reranker.rerank_texts(
                 query=query,
                 texts=decoded_texts,
                 top_k=top_k,
             )
+            rerank_time = time.time() - start_time
 
             # Extract indices and scores
             indices = np.array([result[0] for result in reranked_results], dtype=np.int64)
             scores = np.array([result[1] for result in reranked_results], dtype=np.float32)
+
+            # Log response
+            self._logger.info(f"[{request_id}] Reranking response in {rerank_time:.3f}s - Top scores: {scores[:5].tolist()}")
 
             # Create output tensors
             indices_tensor = pb_utils.Tensor("OUTPUT_INDICES", indices)

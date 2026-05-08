@@ -34,6 +34,7 @@ htmlcov/
 .audio_rag/
 tmp/*
 !tmp/.gitkeep
+.model_cache/
 
 # Test Data
 # Audio files should be stored externally or in a separate test data repository
