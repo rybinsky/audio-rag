@@ -50,6 +50,7 @@ class StoreSettings:
 class EmbedderSettings:
     type: str = "bge"  # "bge" or "hashing"
     embedding_dim: int = 1024  # for hashing embedder
+    use_triton_client: bool = True  # False for Hugging Face Spaces (local models only)
 
 
 @dataclass

@@ -10,6 +10,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/docker-required-blue.svg)](https://www.docker.com/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+[![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/YOUR_USERNAME/audio-rag-demo)
 
 [Features](#-features) • [Quick Start](#-quick-start) • [Usage](#-usage) • [Architecture](#-architecture) • [Documentation](#-documentation)
 
@@ -69,7 +70,25 @@ Perfect for podcasts, interviews, lectures, and any audio content you want to ma
 
 ## Demo
 
-### Ingest a Podcast
+### 🤗 Try it on Hugging Face Spaces
+
+<div align="center">
+
+**[🎙️ Audio RAG Demo - Try it now!](https://huggingface.co/spaces/YOUR_USERNAME/audio-rag-demo)**
+
+*Upload podcasts and ask questions about their content - no installation required!*
+
+[![Open in Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Open%20in-Spaces-blue?style=for-the-badge)](https://huggingface.co/spaces/YOUR_USERNAME/audio-rag-demo)
+
+</div>
+
+**Features:**
+- 📤 Upload podcasts with transcripts
+- ❓ Ask questions in natural language
+- 📚 Get answers with precise citations and timestamps
+- 🎯 No installation required - runs in browser
+
+### Ingest a Podcast (CLI)
 
 ```bash
 python main.py triton-ingest-podcast \
@@ -638,3 +657,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ---
 
 <div align="center">
+
+**[⬆ Back to Top](#️-audio-rag)**
+
+Made with ❤️ for the audio AI community
+
+</div>

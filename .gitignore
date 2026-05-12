@@ -35,6 +35,7 @@ htmlcov/
 tmp/*
 !tmp/.gitkeep
 .model_cache/
+hf_deploy/
 
 # Test Data
 # Audio files should be stored externally or in a separate test data repository
