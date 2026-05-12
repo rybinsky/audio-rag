@@ -25,13 +25,22 @@ from .settings import (
 )
 
 
-def load_settings() -> AppSettings:
+def load_settings(config_name: str = "config") -> AppSettings:
+    """Load application settings from Hydra config.
+
+    Args:
+        config_name: Name of config file without .yaml extension.
+                     Defaults to "config". Use "config_hf" for Hugging Face Spaces.
+
+    Returns:
+        AppSettings instance with loaded configuration
+    """
     config_dir = Path(__file__).resolve().parent.parent / "conf"
     project_root = config_dir.parent.resolve()
     if GlobalHydra.instance().is_initialized():
         GlobalHydra.instance().clear()
     with initialize_config_dir(version_base=None, config_dir=str(config_dir)):
-        config = compose(config_name="config")
+        config = compose(config_name=config_name)
     config_dict = OmegaConf.to_container(config, resolve=True)
 
     settings = AppSettings(

@@ -42,14 +42,17 @@ def create_embedder(settings: AppSettings, triton_url: str = "localhost:8000", m
         if IS_TRITON_SERVER:
             # Inside Triton server: use direct implementation
             return BGEEmbedder(settings.bge)
-        else:
-            # On client: use Triton client
-            # Import here to avoid tritonclient dependency in Triton server
+        elif settings.embedder.use_triton_client:
+            # On client with Triton: use Triton client
+            # Import here to avoid tritonclient dependency when not needed
             from .embedders.triton_bge import TritonBGEEmbedder
             return TritonBGEEmbedder(
                 settings=settings.triton_embedder,
                 triton_url=triton_url,
             )
+        else:
+            # Local mode (e.g., Hugging Face Spaces): use direct implementation
+            return BGEEmbedder(settings.bge)
 
     else:
         raise ValueError(
@@ -95,31 +98,36 @@ def create_store(settings: AppSettings, explicit_path: Path = None) -> BaseStore
 
 
 def create_reranker(settings: AppSettings, triton_url: str = "localhost:8000", model_name: str = None):
-    """Create reranker based on environment.
+    """Create reranker based on environment and configuration.
 
     Inside Triton server: uses SearchReranker (direct implementation).
-    On client: uses TritonReranker (calls Triton through HTTP API).
+    On client with use_triton_client=True: uses TritonReranker (calls Triton through HTTP API).
+    On client with use_triton_client=False: uses SearchReranker (local model).
 
     Args:
         settings: Application settings
-        triton_url: Triton server URL (used only on client)
+        triton_url: Triton server URL (used only on client with Triton)
         model_name: Model name for cache separation (optional)
 
     Returns:
         Reranker instance
 
     Raises:
-        ImportError: If tritonclient is not available on client
+        ImportError: If tritonclient is not available when use_triton_client=True
     """
     if IS_TRITON_SERVER:
         # Inside Triton server: use direct implementation
         from .reranker import SearchReranker
         return SearchReranker(settings.reranker)
-    else:
-        # On client: use Triton client
-        # Import here to avoid tritonclient dependency in Triton server
+    elif settings.embedder.use_triton_client:
+        # On client with Triton: use Triton client
+        # Import here to avoid tritonclient dependency when not needed
         from .triton_reranker import TritonReranker
         return TritonReranker(
             settings=settings.triton_embedder,
             triton_url=triton_url,
         )
+    else:
+        # Local mode (e.g., Hugging Face Spaces): use direct implementation
+        from .reranker import SearchReranker
+        return SearchReranker(settings.reranker)

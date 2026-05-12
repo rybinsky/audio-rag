@@ -1,0 +1,96 @@
+defaults:
+  - _self_
+
+embedder:
+  type: bge # "bge" or "hashing"
+  embedding_dim: 1024 # for hashing embedder
+  use_triton_client: false # Use local models (for Hugging Face Spaces)
+
+chunking:
+  chunk_words: 120
+  overlap_words: 24
+
+retrieval:
+  default_top_k: 5
+  max_preview_words: 24
+  no_results_answer: "Не нашёл релевантных фрагментов в локальном индексе. Сначала загрузите транскрипт или расширьте корпус."
+  source_preview_prefix: "Источники"
+
+transcript:
+  encoding: utf-8
+  podcast_suffix: .transcript.txt
+  question_suffix: .question.txt
+
+metadata:
+  audio_path_key: audio_path
+  transcript_path_key: transcript_path
+  transcript_origin_key: transcript_origin
+  ingest_mode_key: ingest_mode
+  ingest_mode_transcript: transcript
+  ingest_mode_podcast: podcast
+  ingest_mode_triton: triton_ingest_bls
+
+store:
+  type: jsonl # Use JSONL for Hugging Face Spaces (no Qdrant dependency)
+  app_dirname: .audio_rag
+  filename: chunks.jsonl
+
+triton_http:
+  base_url: http://localhost:8000
+  infer_endpoint_template: /v2/models/{model_name}/infer
+  json_content_type: application/json
+  model_ingest_name: ingest_bls
+  model_query_name: query_bls
+  model_asr_name: asr_whisper
+  host_project_root: null
+  container_project_root: /workspace
+
+triton_server:
+  model_repository_path: /models
+  store_path: /data/chunks.jsonl
+  asr_model_size: tiny
+  asr_compute_type: int8
+  cache_dir: /root/.cache
+
+asr:
+  model_size: tiny
+  compute_type: int8
+  device: cpu
+  vad_filter: true
+
+paths:
+  workspace_dir: /tmp/audio_rag_workspace
+  cache_dir: /tmp/audio_rag_cache
+
+logging:
+  level: INFO # DEBUG, INFO, WARNING, ERROR, CRITICAL
+  format: "[%(asctime)s] [%(levelname)s] [%(name)s] %(message)s"
+  log_file: null # Optional: path to log file
+
+qdrant:
+  host: ${oc.env:QDRANT_HOST,localhost}
+  port: ${oc.env:QDRANT_PORT,6333}
+  collection_name: audio_rag_chunks
+  vector_size: 1024
+  distance: Cosine
+
+bge:
+  model_name: BAAI/bge-m3
+  device: cpu
+  normalize_embeddings: true
+  max_length: 512
+  batch_size: 8 # Smaller batch size for HF Spaces free tier
+
+reranker:
+  model_name: BAAI/bge-reranker-v2-m3
+  device: cpu
+  max_length: 512
+
+triton_embedder:
+  bge_model_name: bge_embedder
+  reranker_model_name: reranker
+
+hydra:
+  run:
+    dir: .
+  output_subdir: null
