@@ -27,11 +27,13 @@ class AudioRAGService:
         embedder: BaseEmbedder,
         reranker: RerankerProtocol,
         settings: AppSettings,
+        llm=None,
     ) -> None:
         self._store = store
         self._embedder = embedder
         self._reranker = reranker
         self._settings = settings
+        self._llm = llm
 
     @property
     def store(self) -> BaseStore:
@@ -132,13 +134,14 @@ class AudioRAGService:
         normalized_metadata[self._settings.metadata.ingest_mode_key] = self._settings.metadata.ingest_mode_podcast
         return self.ingest_transcript(source_id=source_id, transcript=transcript, metadata=normalized_metadata)
 
-    def ask(self, query: str, *, top_k: Optional[int] = None, use_reranker: bool = True) -> QueryAnswer:
+    def ask(self, query: str, *, top_k: Optional[int] = None, use_reranker: bool = True, use_llm: bool = True) -> QueryAnswer:
         """Ask a question and get an answer with citations.
 
         Args:
             query: Question text
             top_k: Number of results to retrieve (before reranking)
             use_reranker: Whether to use reranker for better results
+            use_llm: Whether to use LLM for generating natural language answer
 
         Returns:
             QueryAnswer with answer text and citations
@@ -171,7 +174,18 @@ class AudioRAGService:
         if use_reranker and len(results) > effective_top_k:
             results = self._reranker.rerank(cleaned_query, results, top_k=effective_top_k)
 
-        answer = self._build_answer(cleaned_query, results)
+        # Generate answer
+        if use_llm and self._llm is not None and results:
+            # Use LLM for natural language answer
+            context_chunks = [result.chunk.text for result in results]
+            answer = self._llm.generate_answer(
+                query=cleaned_query,
+                context_chunks=context_chunks,
+            )
+        else:
+            # Use template answer
+            answer = self._build_answer(cleaned_query, results)
+
         citations = [self._to_citation(result) for result in results]
         return QueryAnswer(answer=answer, citations=citations, resolved_query_text=cleaned_query)
 

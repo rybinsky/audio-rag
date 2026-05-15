@@ -11,6 +11,7 @@ from .settings import (
     BGESettings,
     ChunkingSettings,
     EmbedderSettings,
+    LLMSettings,
     LoggingSettings,
     MetadataSettings,
     PathSettings,
@@ -58,6 +59,7 @@ def load_settings(config_name: str = "config") -> AppSettings:
         qdrant=QdrantSettings(**config_dict["qdrant"]),
         bge=BGESettings(**config_dict.get("bge", {})),
         reranker=RerankerSettings(**config_dict.get("reranker", {})),
+        llm=LLMSettings(**config_dict.get("llm", {})),
         triton_embedder=TritonEmbedderSettings(**config_dict["triton_embedder"]),
     )
     settings.triton_http.host_project_root = str(project_root)

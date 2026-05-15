@@ -86,6 +86,12 @@ reranker:
   device: cpu
   max_length: 512
 
+llm:
+  model_name: Qwen/Qwen2.5-0.5B-Instruct
+  device: cpu
+  max_new_tokens: 512
+  enabled: true # Set to false to disable LLM and use template answers
+
 triton_embedder:
   bge_model_name: bge_embedder
   reranker_model_name: reranker

@@ -122,6 +122,14 @@ class RerankerSettings:
 
 
 @dataclass
+class LLMSettings:
+    model_name: str = "Qwen/Qwen2.5-0.5B-Instruct"
+    device: str = "cpu"
+    max_new_tokens: int = 512
+    enabled: bool = True
+
+
+@dataclass
 class TritonEmbedderSettings:
     bge_model_name: str = "bge_embedder"
     reranker_model_name: str = "reranker"
@@ -143,6 +151,7 @@ class AppSettings:
     qdrant: QdrantSettings = field(default_factory=QdrantSettings)
     bge: BGESettings = field(default_factory=BGESettings)
     reranker: RerankerSettings = field(default_factory=RerankerSettings)
+    llm: LLMSettings = field(default_factory=LLMSettings)
     triton_embedder: TritonEmbedderSettings = field(default_factory=TritonEmbedderSettings)
 
 

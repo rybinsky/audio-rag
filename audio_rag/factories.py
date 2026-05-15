@@ -5,7 +5,7 @@ from pathlib import Path
 
 from .embedders import BaseEmbedder, BGEEmbedder
 from .settings import AppSettings
-from .stores import BaseStore, JsonlChunkStore, QdrantChunkStore
+from .stores import BaseStore, JsonlChunkStore
 
 # Check if we're running inside Triton server
 # Inside Triton, we should use direct implementations (not Triton clients)
@@ -79,6 +79,12 @@ def create_store(settings: AppSettings, explicit_path: Path = None) -> BaseStore
     store_type = settings.store.type.lower().strip()
 
     if store_type == "qdrant":
+        from .stores import QdrantChunkStore
+        if QdrantChunkStore is None:
+            raise ImportError(
+                "Qdrant store requires 'qdrant-client' package. "
+                "Install it with: pip install qdrant-client"
+            )
         return QdrantChunkStore(settings.qdrant)
 
     elif store_type == "jsonl":
