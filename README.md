@@ -2,32 +2,81 @@
 
 # 🎙️ Audio RAG
 
-**RAG System for Audio Content with Triton Inference Server**
+**Production-Ready RAG System for Audio Content**
 
-*Transcribe, index, and query audio content with AI-powered search*
+*Transcribe, index, and query audio content with AI-powered semantic search*
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/docker-required-blue.svg)](https://www.docker.com/)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/YOUR_USERNAME/audio-rag-demo)
+[![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/Nikita76/audio-rag-demo)
 
-[Features](#-features) • [Quick Start](#-quick-start) • [Usage](#-usage) • [Architecture](#-architecture) • [Documentation](#-documentation)
+[Demo](#-live-demo) • [Features](#-features) • [Quick Start](#-quick-start) • [Architecture](#-architecture) • [Documentation](#-documentation)
 
 </div>
 
 ---
 
+## 🎯 Overview
+
+**Audio RAG** is a production-ready system for indexing and querying audio content using Retrieval-Augmented Generation (RAG). Built on NVIDIA Triton Inference Server, it provides end-to-end audio intelligence:
+
+- 🎤 **Speech-to-Text** - Whisper-powered transcription with timestamps
+- 🔍 **Semantic Search** - BGE-M3 multilingual embeddings with vector search
+- 🤖 **AI Answers** - LLM-generated responses with source citations
+- 🚀 **Production Ready** - Docker-based deployment with scalable inference
+
+Perfect for podcasts, interviews, lectures, and any audio content you want to make searchable and queryable.
+
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🎤 **Audio Transcription** | Whisper ASR with word-level timestamps (99+ languages) |
+| 🌍 **Multilingual** | BGE-M3 embeddings support 100+ languages |
+| 📊 **Vector Search** | Qdrant-powered similarity search with reranking |
+| 🔄 **Smart Reranking** | BGE-Reranker for improved relevance scoring |
+| 💬 **LLM Answers** | Contextual answers with precise citations |
+| 🐳 **Docker Ready** | One-command deployment with Docker Compose |
+| ⚡ **Triton Powered** | Scalable inference serving with NVIDIA Triton |
+| 🎛️ **Configurable** | Hydra-based configuration system |
+| 🎨 **Gradio Demo** | Interactive web UI on Hugging Face Spaces |
+
+---
+
+## 🎬 Live Demo
+
+### Try it now - no installation required!
+
+<div align="center">
+
+**[🎙️ Audio RAG Demo on Hugging Face Spaces](https://huggingface.co/spaces/Nikita76/audio-rag-demo)**
+
+[![Open in Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Open%20in-Spaces-blue?style=for-the-badge)](https://huggingface.co/spaces/Nikita76/audio-rag-demo)
+
+*Upload podcasts and ask questions about their content - runs entirely in browser!*
+
+</div>
+
+**Demo Features:**
+- 📤 Upload audio files (MP3, WAV, M4A)
+- 🎤 Automatic transcription with Whisper ASR
+- ❓ Ask questions in natural language
+- 📚 Get answers with precise citations and timestamps
+- 🎯 Zero setup - runs on CPU in the cloud
+
+---
+
 ## 📋 Table of Contents
 
-- [Overview](#overview)
-- [Features](#-features)
-- [Demo](#-demo)
 - [Requirements](#-requirements)
 - [Quick Start](#-quick-start)
+  - [Option 1: Try Demo](#option-1-try-demo-recommended-for-first-time-users)
+  - [Option 2: Production Setup](#option-2-production-setup-with-triton)
 - [Usage](#-usage)
-  - [Ingest Audio](#ingest-audio)
-  - [Ask Questions](#ask-questions)
 - [Architecture](#-architecture)
 - [Project Structure](#-project-structure)
 - [Configuration](#-configuration)
@@ -40,90 +89,7 @@
 
 ---
 
-## Overview
-
-**Audio RAG** is a production-ready system for indexing and querying audio content using Retrieval-Augmented Generation (RAG). Built on NVIDIA Triton Inference Server, it provides:
-
-- 🎯 **Speech-to-Text** - Whisper-powered transcription with timestamps
-- 🔍 **Semantic Search** - BGE-M3 multilingual embeddings with Qdrant vector DB
-- 🤖 **AI Answers** - LLM-generated responses with source citations
-- 🚀 **Production Ready** - Docker-based deployment with Triton inference server
-
-Perfect for podcasts, interviews, lectures, and any audio content you want to make searchable and queryable.
-
----
-
-## ✨ Features
-
-| Feature | Description |
-|---------|-------------|
-| 🎤 **Audio Transcription** | Whisper ASR with word-level timestamps |
-| 🌍 **Multilingual** | Support for 99+ languages via BGE-M3 embeddings |
-| 📊 **Vector Search** | Qdrant-powered similarity search |
-| 🔄 **Reranking** | BGE-Reranker for improved relevance |
-| 💬 **LLM Answers** | Contextual answers with citations |
-| 🐳 **Docker Ready** | One-command deployment |
-| ⚡ **Triton Powered** | Scalable inference serving |
-| 🎛️ **Configurable** | Hydra-based configuration |
-
----
-
-## Demo
-
-### 🤗 Try it on Hugging Face Spaces
-
-<div align="center">
-
-**[🎙️ Audio RAG Demo - Try it now!](https://huggingface.co/spaces/YOUR_USERNAME/audio-rag-demo)**
-
-*Upload podcasts and ask questions about their content - no installation required!*
-
-[![Open in Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Open%20in-Spaces-blue?style=for-the-badge)](https://huggingface.co/spaces/YOUR_USERNAME/audio-rag-demo)
-
-</div>
-
-**Features:**
-- 📤 Upload podcasts with transcripts
-- ❓ Ask questions in natural language
-- 📚 Get answers with precise citations and timestamps
-- 🎯 No installation required - runs in browser
-
-### Ingest a Podcast (CLI)
-
-```bash
-python main.py triton-ingest-podcast \
-  --source my-podcast \
-  --audio-file ./podcast.mp3
-```
-
-```json
-{
-  "status": "success",
-  "chunks_count": 15,
-  "source_id": "my-podcast"
-}
-```
-
-### Ask Questions
-
-```bash
-python main.py triton-ask "What was discussed about exchange rates?"
-```
-
-```
-Resolved question: What was discussed about exchange rates?
-
-The current exchange rate as of May 5, 2022 is 75.50 rubles per US dollar.
-
-Citations:
-• my-podcast [0:18] score=0.847
-  "На сегодняшний день 5 мая 2022 года курс доллара составляет 
-   75 рублей и 50 копеек к российскому рублю."
-```
-
----
-
-## Requirements
+## 💻 Requirements
 
 ### Minimum
 
@@ -149,11 +115,29 @@ Citations:
 
 ## 🚀 Quick Start
 
-### 1. Clone & Install
+### Option 1: Try Demo (Recommended for First-Time Users)
+
+**No installation required!** Try the live demo on Hugging Face Spaces:
+
+👉 **[https://huggingface.co/spaces/Nikita76/audio-rag-demo](https://huggingface.co/spaces/Nikita76/audio-rag-demo)**
+
+Perfect for:
+- ✅ Quick experimentation
+- ✅ Testing functionality
+- ✅ Understanding capabilities
+- ✅ No local setup needed
+
+---
+
+### Option 2: Production Setup (with Triton)
+
+For production deployments and local development:
+
+#### 1. Clone & Install
 
 ```bash
 # Clone the repository
-git clone <repo-url>
+git clone https://github.com/nikbarinov/audio-rag.git
 cd audio-rag
 
 # Create and activate virtual environment
@@ -165,17 +149,17 @@ source .venv/bin/activate  # Linux/macOS
 pip install -e .
 ```
 
-### 2. Configure Environment
+#### 2. Configure Environment
 
 ```bash
-# Copy environment template
+# Copy environment template (create if needed)
 cp .env.example .env
 
 # Edit if needed (defaults work for local development)
 # nano .env
 ```
 
-### 3. Start Services
+#### 3. Start Services
 
 ```bash
 # Build and start all services (Qdrant + Triton)
@@ -199,7 +183,7 @@ docker-compose logs -f triton
 
 Press `Ctrl+C` to stop following logs.
 
-### 4. Verify Setup
+#### 4. Verify Setup
 
 ```bash
 # Check Triton server health
@@ -213,7 +197,7 @@ Both should return HTTP 200. You're ready to go! 🎉
 
 ---
 
-## Usage
+## 📖 Usage
 
 ### Ingest Audio
 
@@ -221,8 +205,8 @@ Import audio content into the vector database:
 
 ```bash
 python main.py triton-ingest-podcast \
-  --source <source-id> \
-  --audio-file ./path/to/audio.mp3
+  --source my-podcast \
+  --audio-file ./podcast.mp3
 ```
 
 **Parameters:**
@@ -264,13 +248,13 @@ Resolved question transcript: [Transcribed question]
 [LLM-generated answer based on context]
 
 Citations:
-- source_id [start:end] score=0.XXX
+• my-podcast [0:18] score=0.847
   "Relevant text snippet from audio..."
 ```
 
 ---
 
-## Architecture
+## 🏗️ Architecture
 
 ### System Components
 
@@ -343,7 +327,7 @@ Question ──▶ BGE-M3 Embed ──▶ Qdrant Search
 
 ---
 
-## Project Structure
+## 📁 Project Structure
 
 ```
 audio-rag/
@@ -371,23 +355,28 @@ audio-rag/
 │   └── llm_qwen/          # LLM answer generation
 │
 ├── conf/                  # Hydra configuration
-│   └── config.yaml        # Main configuration
+│   ├── config.yaml        # Main configuration
+│   └── config_hf.yaml     # Hugging Face Spaces config
 │
 ├── tests/                 # Test suite
 │   ├── test_mvp.py        # Integration tests
 │   ├── test_triton_client.py  # Triton client tests
 │   └── test_audio_workflow.py # Audio workflow tests
 │
+├── scripts/               # Utility scripts
+│   ├── deploy_hf.py       # Deploy to HF Spaces
+│   └── deploy_hf.sh       # Deployment shell script
+│
+├── app.py                 # Gradio demo application
 ├── docker-compose.yml     # Docker services
 ├── Dockerfile.triton      # Triton container
-├── .env.example           # Environment template
 ├── pyproject.toml         # Project metadata
 └── requirements-*.txt     # Dependencies
 ```
 
 ---
 
-## Configuration
+## ⚙️ Configuration
 
 ### Environment Variables
 
@@ -446,7 +435,7 @@ services:
 
 ---
 
-## Development
+## 🔧 Development
 
 ### Running Tests
 
@@ -501,7 +490,7 @@ docker-compose down -v
 
 ---
 
-## Troubleshooting
+## 🐛 Troubleshooting
 
 ### Models Not Loading
 
@@ -581,7 +570,7 @@ docker-compose logs triton | grep "Loading"
 
 ---
 
-## Roadmap
+## 🗺️ Roadmap
 
 ### Short Term
 
@@ -607,7 +596,7 @@ docker-compose logs triton | grep "Loading"
 
 ---
 
-## Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please follow these steps:
 
@@ -639,13 +628,13 @@ Please include:
 
 ---
 
-## License
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
 - [NVIDIA Triton Inference Server](https://github.com/triton-inference-server/server) - Scalable model serving
 - [OpenAI Whisper](https://github.com/openai/whisper) - Speech recognition
@@ -653,6 +642,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - [Qwen Team](https://huggingface.co/Qwen) - Qwen LLM models
 - [Qdrant](https://qdrant.tech/) - Vector database
 - [Hydra](https://hydra.cc/) - Configuration framework
+- [Gradio](https://gradio.app/) - Web UI framework
+- [Hugging Face](https://huggingface.co/) - Model hosting and Spaces
 
 ---
 
@@ -661,5 +652,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 **[⬆ Back to Top](#️-audio-rag)**
 
 Made with ❤️ for the audio AI community
+
+**[🎙️ Try the Demo](https://huggingface.co/spaces/Nikita76/audio-rag-demo)** • **[📚 Read the Docs](https://github.com/nikbarinov/audio-rag#readme)**
 
 </div>
